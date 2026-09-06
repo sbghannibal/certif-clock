@@ -78,6 +78,32 @@ function resolve_location(?string $param): ?array
     return find_location_by_slug($param);
 }
 
+/**
+ * Zoals resolve_location(), maar onthoudt de laatst bekeken locatie in de
+ * sessie zodat het dashboard bij een volgend bezoek dezelfde locatie toont.
+ */
+function resolve_active_location(?string $param): ?array
+{
+    if ($param === null || trim($param) === '') {
+        $remembered = $_SESSION['active_location'] ?? null;
+        if (is_string($remembered) && $remembered !== '') {
+            $location = resolve_location($remembered);
+            if ($location !== null) {
+                return $location;
+            }
+        }
+
+        return resolve_location(null);
+    }
+
+    $location = resolve_location($param);
+    if ($location !== null) {
+        $_SESSION['active_location'] = $location['slug'];
+    }
+
+    return $location;
+}
+
 function create_location(string $name, string $defaultLanguage = DEFAULT_LANGUAGE): int
 {
     $name = trim($name);

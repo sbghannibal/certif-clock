@@ -16,12 +16,14 @@ klok via een directe link of QR-code.
   laten geluid pas toe na een gebruikersactie) plus de melding "Tijd is om!".
 - De klok van een bord ververst zichzelf elke 5 seconden via een lichte achtergrondaanvraag, zodat
   een net gestarte of gestopte certificatie meteen zichtbaar is zonder volledige paginaherlaad.
-- **Dashboard** (`/admin.php`) met twee niveaus:
-  - `expert`: start een certificatie (PERID, locatie, bord, duur) en stopt een lopende klok, filtert
-    het overzicht op locatie, en kan het eigen wachtwoord wijzigen.
-  - `owner`: kan daarnaast locaties beheren (toevoegen/hernoemen/verwijderen) en experten (en
-    owners) aanmaken en verwijderen. Bij het aanmaken van een gebruiker wordt, als er geen
-    wachtwoord ingevuld wordt, automatisch een sterk wachtwoord gegenereerd en eenmalig getoond.
+- **Dashboard** (`/admin.php`) voor experten en owners: de actieve locatie kies je in de header,
+  daaronder staan het startformulier (PERID, locatie, bord, duur), de klokken van die locatie en de
+  historiek. De gekozen locatie blijft bewaard in de sessie.
+- **Accountpagina** (`/account.php`): eigen wachtwoord wijzigen en de eigen taalvoorkeur instellen.
+- **Beheerpagina** (`/owner.php`, enkel voor `owner`): locaties beheren
+  (toevoegen/hernoemen/verwijderen, met standaardtaal) en experten (en owners) aanmaken en
+  verwijderen. Bij het aanmaken van een gebruiker wordt, als er geen wachtwoord ingevuld wordt,
+  automatisch een sterk wachtwoord gegenereerd en eenmalig getoond.
 - Overzichten tonen enkel **relevante** certificaties: certificaties die nog lopen, in de laatste
   4 uur gestart zijn, of maximaal 6 uur geleden gestopt zijn.
 - Het dashboard is **nooit toegankelijk zonder login**: niet-aangemelde bezoekers worden meteen naar
@@ -41,7 +43,9 @@ assets zijn bedoeld om rechtstreeks opgevraagd te worden.
 | `qr.php`     | QR-code (PNG) naar de klok van een bord op een locatie              |
 | `login.php`  | Aanmelden                                                          |
 | `logout.php` | Afmelden (POST met CSRF-token)                                     |
-| `admin.php`  | Dashboard, enkel na login                                          |
+| `admin.php`  | Dashboard (klokken, certificaties, historiek), enkel na login       |
+| `account.php`| Eigen wachtwoord en taalvoorkeur, enkel na login                    |
+| `owner.php`  | Locatie- en gebruikersbeheer, enkel voor een owner                  |
 | `config.php` | Configuratie op basis van omgevingsvariabelen / `.env`             |
 | `app/`       | Bootstrap, database, authenticatie, locaties, domeinlogica, QR-generator |
 | `views/`     | Templates                                                          |
@@ -101,8 +105,9 @@ Taalkeuze werkt als volgt:
   ingelogde admin, daarna de sessie en ten slotte Engels;
 - de header bevat een taalkeuze NL/EN/FR/DE; bij ingelogde admins wordt die keuze ook in `users.language`
   opgeslagen;
-- publieke borden/klokken gebruiken standaard `locations.default_language` van de gekozen locatie,
-  tenzij er een geldige `?lang=` override in de URL staat.
+- borden/klokken gebruiken voor aangemelde gebruikers altijd hun accounttaal, en voor publieke
+  bezoekers `locations.default_language` van de gekozen locatie, tenzij er een geldige `?lang=`
+  override in de URL staat.
 
 ### Eerste start (admin install)
 
@@ -131,8 +136,9 @@ applicatie een duidelijke installatiepagina met de te nemen stappen.
 ## Beveiliging
 
 - Sessiegebaseerde login met `password_hash`/`password_verify`.
-- Harde guard op `/admin.php`: zonder login altijd een redirect naar `/login.php`.
-- Owner-only acties (gebruikers- en locatiebeheer) geven `403` voor experten.
+- Harde guard op `/admin.php`, `/account.php` en `/owner.php`: zonder login altijd een redirect naar
+  `/login.php`.
+- `/owner.php` is enkel voor owners: experten worden teruggestuurd naar het dashboard.
 - CSRF-token op elke schrijvende POST-actie (starten, stoppen, gebruikers-/locatiebeheer,
   wachtwoord wijzigen, afmelden).
 - Locatie wordt bij het starten van een certificatie server-side gevalideerd tegen de

@@ -5,6 +5,9 @@ return [
     'nav.dashboard' => 'Tableau de bord',
     'nav.login' => 'Connexion',
     'nav.logout' => 'Déconnexion',
+    'nav.account' => 'Mon compte',
+    'nav.owner' => 'Gestion',
+    'nav.back_to_dashboard' => 'Retour au tableau de bord',
     'nav.language' => 'Langue',
     'footer.text' => 'certif-clock · horloges de certification pour maximum %s tableaux',
     'home.title' => 'Horloges de certification',
@@ -88,4 +91,8 @@ return [
     'flash.location_deleted' => 'Lieu supprimé.',
     'flash.unknown_action' => 'Action inconnue.',
     'flash.action_failed_user_certifications' => 'Action échouée : cet utilisateur a encore des certifications liées à son compte.',
+    'account.title' => 'Mon compte',
+    'owner.title' => 'Gestion',
+    'owner.intro' => 'Gérez les sites et les utilisateurs.',
+    'language.preference_help' => 'Cette langue est aussi utilisée pour les horloges ouvertes une fois connecté.',
 ];

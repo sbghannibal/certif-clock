@@ -28,6 +28,10 @@ $user = $user ?? null;
         <a href="/index.php"><?= e(t('nav.boards')) ?></a>
         <?php if ($user !== null): ?>
           <a href="/admin.php"><?= e(t('nav.dashboard')) ?></a>
+          <a href="/account.php"><?= e(t('nav.account')) ?></a>
+          <?php if (($user['role'] ?? '') === 'owner'): ?>
+            <a href="/owner.php"><?= e(t('nav.owner')) ?></a>
+          <?php endif; ?>
           <span class="nav__user"><?= e($user['username']) ?> · <?= e($user['role']) ?></span>
           <form method="post" action="/logout.php" class="nav__form">
             <?= csrf_field() ?>

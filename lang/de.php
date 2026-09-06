@@ -5,6 +5,9 @@ return [
     'nav.dashboard' => 'Dashboard',
     'nav.login' => 'Anmelden',
     'nav.logout' => 'Abmelden',
+    'nav.account' => 'Mein Konto',
+    'nav.owner' => 'Verwaltung',
+    'nav.back_to_dashboard' => 'Zurück zum Dashboard',
     'nav.language' => 'Sprache',
     'footer.text' => 'certif-clock · Zertifizierungsuhren für bis zu %s Tafeln',
     'home.title' => 'Zertifizierungsuhren',
@@ -88,4 +91,8 @@ return [
     'flash.location_deleted' => 'Standort gelöscht.',
     'flash.unknown_action' => 'Unbekannte Aktion.',
     'flash.action_failed_user_certifications' => 'Aktion fehlgeschlagen: Dieser Benutzer hat noch Zertifizierungen auf seinem Konto.',
+    'account.title' => 'Mein Konto',
+    'owner.title' => 'Verwaltung',
+    'owner.intro' => 'Standorte und Benutzer verwalten.',
+    'language.preference_help' => 'Diese Sprache gilt auch für die Uhren, die du angemeldet öffnest.',
 ];

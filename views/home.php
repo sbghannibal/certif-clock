@@ -57,7 +57,11 @@ ob_start();
       </header>
 
       <?php if ($certification !== null): ?>
-        <p class="clock" data-ends-at="<?= e($certification['endsAt']) ?>">--:--:--</p>
+        <p class="clock<?= $certification['paused'] ? ' is-paused' : '' ?>"
+           data-ends-at="<?= e($certification['endsAt']) ?>"
+           data-duration-seconds="<?= e((string) $certification['durationSeconds']) ?>"
+           data-paused="<?= $certification['paused'] ? 'true' : 'false' ?>"
+           data-remaining-seconds="<?= e((string) $certification['remainingSeconds']) ?>">--:--:--</p>
         <dl class="details">
           <div><dt>PERID</dt><dd><?= e($certification['perid']) ?></dd></div>
           <div><dt><?= e(t('home.location')) ?></dt><dd><?= e($certification['location']) ?></dd></div>

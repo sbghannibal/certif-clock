@@ -6,9 +6,12 @@
   var SOUND_STORAGE_KEY = 'certif-clock-sound';
   var SOUND_DEFAULT = 'beep';
   var SOUND_CHOICES = ['beep', 'bell', 'chime', 'alert'];
+  var VOLUME_STORAGE_KEY = 'certif-clock-volume';
+  var VOLUME_DEFAULT = 80;
   // Ververs de pagina kort na het aflopen van de timer zodat de status
   // ("Afgelopen" en daarna opnieuw "Vrij") klopt met de database.
   var REFRESH_AFTER_EXPIRY_MS = 3000;
+  var ADMIN_POLL_INTERVAL_MS = 10000;
 
   var soundEnabled = false;
   var audioContext = null;
@@ -39,6 +42,30 @@
     } catch (error) { /* stille fallback: de keuze geldt dan enkel voor deze sessie */ }
   }
 
+  function getVolume() {
+    try {
+      var stored = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+      if (stored !== null && stored !== '') {
+        var value = parseInt(stored, 10);
+        if (!isNaN(value) && value >= 0 && value <= 100) {
+          return value;
+        }
+      }
+    } catch (error) { /* localStorage niet beschikbaar */ }
+    return VOLUME_DEFAULT;
+  }
+
+  function setVolume(value) {
+    var volume = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+    try {
+      window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
+    } catch (error) { /* stille fallback: geldt dan enkel voor deze sessie */ }
+    return volume;
+  }
+
+  /* Activeert het geluid. Wordt automatisch bij het laden van de pagina en
+     bij de eerste gebruikersinteractie opgeroepen, zodat er nooit manueel op
+     "Geluid activeren" geklikt moet worden. */
   function enableSound() {
     var AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
@@ -53,14 +80,16 @@
   function playAlarm() {
     if (!soundEnabled) return;
     var sound = getSelectedSound();
+    var volume = getVolume() / 100;
     try {
       var audio = new Audio('/assets/sounds/' + sound + '.mp3');
+      audio.volume = volume;
       var result = audio.play();
       if (result && typeof result.catch === 'function') {
-        result.catch(function () { playFallbackAlarm(sound); });
+        result.catch(function () { playFallbackAlarm(sound, volume); });
       }
     } catch (error) {
-      playFallbackAlarm(sound);
+      playFallbackAlarm(sound, volume);
     }
   }
 
@@ -78,30 +107,31 @@
   }
 
   /* WebAudio-varianten per geluid, gebruikt als de mp3 niet afgespeeld kan worden. */
-  function playFallbackAlarm(sound) {
+  function playFallbackAlarm(sound, volume) {
     if (!audioContext) return;
+    var level = typeof volume === 'number' ? volume : 1;
     if (sound === 'bell') {
       [660, 660 * 2.76, 660 * 5.4].forEach(function (frequency, index) {
-        tone(frequency, 0, 1.8, 'sine', 0.3 / (index + 1));
+        tone(frequency, 0, 1.8, 'sine', (0.3 / (index + 1)) * level);
       });
       return;
     }
     if (sound === 'chime') {
       [659.25, 783.99, 1046.5, 1318.51].forEach(function (frequency, index) {
-        tone(frequency, index * 0.28, 1.1, 'sine', 0.25);
+        tone(frequency, index * 0.28, 1.1, 'sine', 0.25 * level);
       });
       return;
     }
     if (sound === 'alert') {
       for (var i = 0; i < 3; i++) {
-        tone(880, i * 0.64, 0.28, 'square', 0.22);
-        tone(1174.66, i * 0.64 + 0.32, 0.28, 'square', 0.22);
+        tone(880, i * 0.64, 0.28, 'square', 0.22 * level);
+        tone(1174.66, i * 0.64 + 0.32, 0.28, 'square', 0.22 * level);
       }
       return;
     }
     // beep (standaard)
     [0, 0.6, 1.2, 1.8].forEach(function (start) {
-      tone(880, start, 0.45, 'square', 0.3);
+      tone(880, start, 0.45, 'square', 0.3 * level);
     });
   }
 
@@ -126,16 +156,37 @@
     });
   }
 
+  /* Kleurniveau van de klok op basis van het percentage resterende tijd
+     t.o.v. de totale duur: groen (>80%), oranje (20-80%), rood (<20%). */
+  function applyColor(element, remaining, totalDuration) {
+    var percentRemaining = totalDuration > 0 ? (remaining / totalDuration) * 100 : 100;
+    element.classList.toggle('is-warning', remaining > 0 && percentRemaining <= 80 && percentRemaining > 20);
+    element.classList.toggle('is-danger', remaining > 0 && percentRemaining <= 20);
+    element.classList.toggle('is-expired', remaining <= 0);
+  }
+
   function tick() {
     var now = Date.now();
     document.querySelectorAll('.clock[data-ends-at]').forEach(function (element) {
+      var totalDuration = parseInt(element.getAttribute('data-duration-seconds') || '0', 10);
+      var paused = element.getAttribute('data-paused') === 'true';
+
+      var remaining;
+      if (paused) {
+        // Bij een gepauzeerde certificatie staat de tijd stil: toon de
+        // resterende tijd op het moment van pauzeren, zonder verder af te tellen.
+        remaining = parseFloat(element.getAttribute('data-remaining-seconds') || '0');
+        element.textContent = formatDuration(remaining);
+        element.classList.remove('is-warning', 'is-danger', 'is-expired');
+        return;
+      }
+
       var endsAt = Date.parse(element.getAttribute('data-ends-at'));
       if (isNaN(endsAt)) return;
 
-      var remaining = Math.max(0, (endsAt - now) / 1000);
+      remaining = Math.max(0, (endsAt - now) / 1000);
       element.textContent = formatDuration(remaining);
-      element.classList.toggle('is-warning', remaining > 0 && remaining <= 300);
-      element.classList.toggle('is-expired', remaining <= 0);
+      applyColor(element, remaining, totalDuration);
 
       if (remaining <= 0 && element.dataset.alarmPlayed !== 'true') {
         element.dataset.alarmPlayed = 'true';
@@ -160,7 +211,11 @@
     if (certification) {
       if (clock) {
         clock.setAttribute('data-ends-at', certification.endsAt);
+        clock.setAttribute('data-duration-seconds', String(certification.durationSeconds));
+        clock.setAttribute('data-paused', certification.paused ? 'true' : 'false');
+        clock.setAttribute('data-remaining-seconds', String(certification.remainingSeconds));
         clock.classList.remove('clock--idle');
+        clock.classList.toggle('is-paused', !!certification.paused);
       }
       if (meta) {
         meta.innerHTML =
@@ -175,6 +230,7 @@
       if (clock) {
         clock.setAttribute('data-ends-at', '');
         clock.classList.add('clock--idle');
+        clock.classList.remove('is-paused', 'is-warning', 'is-danger', 'is-expired');
         clock.textContent = '--:--:--';
         clock.dataset.alarmPlayed = 'false';
       }
@@ -203,11 +259,64 @@
       .catch(function () { /* stille herhaling bij een tijdelijke netwerkfout */ });
   }
 
+  /* Ververst enkel de klokken en badges van het admin-dashboard, zonder de
+     rest van de pagina (en dus zonder het "Certificatie starten"-formulier)
+     te verstoren. */
+  function updateAdminBoards(boards) {
+    boards.forEach(function (state) {
+      var card = document.querySelector('.board-card[data-board="' + state.board + '"]');
+      if (!card) return;
+
+      var badge = card.querySelector('.badge');
+      var clock = card.querySelector('.clock[data-ends-at], .clock--idle');
+      var certification = state.certification;
+
+      if (badge) {
+        badge.classList.remove('badge--live', 'badge--idle', 'badge--paused');
+        if (!state.running) {
+          badge.classList.add('badge--idle');
+        } else if (certification.paused) {
+          badge.classList.add('badge--paused');
+        } else {
+          badge.classList.add('badge--live');
+        }
+      }
+
+      if (clock && certification) {
+        clock.setAttribute('data-ends-at', certification.endsAt);
+        clock.setAttribute('data-duration-seconds', String(certification.durationSeconds));
+        clock.setAttribute('data-paused', certification.paused ? 'true' : 'false');
+        clock.setAttribute('data-remaining-seconds', String(certification.remainingSeconds));
+        clock.classList.remove('clock--idle');
+        clock.classList.toggle('is-paused', !!certification.paused);
+      }
+    });
+  }
+
+  function pollAdminBoards() {
+    var section = document.querySelector('[data-admin-boards]');
+    if (!section) return;
+    var url = section.getAttribute('data-poll-url');
+    if (!url) return;
+
+    fetch(url, { headers: { Accept: 'application/json' } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) { if (data && data.boards) updateAdminBoards(data.boards); })
+      .catch(function () { /* stille herhaling bij een tijdelijke netwerkfout */ });
+  }
+
   function initSoundControls() {
     document.querySelectorAll('select[data-sound-select]').forEach(function (select) {
       select.value = getSelectedSound();
       select.addEventListener('change', function () {
         setSelectedSound(select.value);
+      });
+    });
+
+    document.querySelectorAll('input[data-volume-select]').forEach(function (input) {
+      input.value = String(getVolume());
+      input.addEventListener('input', function () {
+        setVolume(input.value);
       });
     });
 
@@ -218,10 +327,71 @@
         button.disabled = true;
       });
     });
+
+    document.querySelectorAll('[data-test-sound]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        enableSound();
+        playAlarm();
+      });
+    });
+  }
+
+  function findCsrfToken(container) {
+    var input = container ? container.querySelector('input[name="csrf_token"]') : null;
+    if (input) return input.value;
+    var globalInput = document.querySelector('input[name="csrf_token"]');
+    return globalInput ? globalInput.value : '';
+  }
+
+  /* Extra tijd toevoegen via de +1 min / +5 min knoppen (AJAX). De custom
+     invoer valt terug op een normale POST naar admin.php (werkt ook zonder JS). */
+  function initExtendControls() {
+    document.querySelectorAll('[data-extend-controls]').forEach(function (container) {
+      var certificationId = container.getAttribute('data-certification-id');
+      container.querySelectorAll('button[data-extend-seconds]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var seconds = parseInt(button.getAttribute('data-extend-seconds'), 10);
+          if (!seconds || button.disabled) return;
+          button.disabled = true;
+          var body = new URLSearchParams();
+          body.set('certification_id', certificationId);
+          body.set('extension_seconds', String(seconds));
+          body.set('csrf_token', findCsrfToken(container));
+
+          fetch('/api/extend-certification.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+            body: body.toString(),
+          })
+            .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+            .then(function (result) {
+              if (result.ok) {
+                window.location.reload();
+              } else {
+                window.alert(result.data && result.data.error ? result.data.error : 'Kon geen extra tijd toevoegen.');
+                button.disabled = false;
+              }
+            })
+            .catch(function () {
+              window.alert('Kon geen extra tijd toevoegen.');
+              button.disabled = false;
+            });
+        });
+      });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     initSoundControls();
+    initExtendControls();
+
+    // Geluid staat steeds automatisch aan: geen manuele klik meer nodig.
+    // Bij browsers die pas na een gebruikersgebaar geluid toestaan, wordt dit
+    // bij de eerste klik/toetsaanslag alsnog (stil) opnieuw geprobeerd.
+    enableSound();
+    ['click', 'keydown', 'touchstart'].forEach(function (eventName) {
+      document.addEventListener(eventName, enableSound, { once: true, passive: true });
+    });
 
     // Voorkomt dubbele submits (bv. dubbelklikken op "Starten" of "Stoppen").
     document.querySelectorAll('form').forEach(function (form) {
@@ -246,6 +416,12 @@
     if (document.querySelector('[data-board-view]')) {
       pollBoardView();
       setInterval(pollBoardView, 5000);
+    }
+
+    // Ververst enkel de klokken/badges van het admin-dashboard (o.a. voor
+    // auto-sluiten), zonder het "Certificatie starten"-formulier te hinderen.
+    if (document.querySelector('[data-admin-boards]')) {
+      setInterval(pollAdminBoards, ADMIN_POLL_INTERVAL_MS);
     }
   });
 })();

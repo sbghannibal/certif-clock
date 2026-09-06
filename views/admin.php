@@ -38,7 +38,11 @@ ob_start();
           <?php endforeach; ?>
         </select>
       </label>
+      <label class="volume-picker"><?= e(t('sound.volume')) ?>
+        <input type="range" data-volume-select min="0" max="100" step="5">
+      </label>
       <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+      <button class="btn btn--ghost" type="button" data-test-sound><?= e(t('sound.test')) ?></button>
     </div>
   </div>
 </section>
@@ -84,30 +88,55 @@ ob_start();
   </form>
 </section>
 
-<section class="grid">
+<section class="grid" data-admin-boards data-poll-url="/admin.php?location=<?= e($locationParam) ?>&format=json">
   <?php foreach ($boards as $state): ?>
     <?php $certification = $state['certification']; ?>
-    <article class="card board-card">
+    <article class="card board-card" data-board="<?= e((string) $state['board']) ?>">
       <header class="card__header">
         <h2><?= e(t('board.title')) ?> <?= e((string) $state['board']) ?></h2>
-        <span class="badge <?= $state['running'] ? 'badge--live' : 'badge--idle' ?>">
-          <?= e($state['running'] ? t('board.busy') : t('board.free')) ?>
+        <span class="badge <?= $state['running'] ? ($certification['paused'] ? 'badge--paused' : 'badge--live') : 'badge--idle' ?>">
+          <?= e($state['running'] ? ($certification['paused'] ? t('cert.paused_badge') : t('board.busy')) : t('board.free')) ?>
         </span>
       </header>
       <?php if ($certification !== null): ?>
-        <p class="clock" data-ends-at="<?= e($certification['endsAt']) ?>">--:--:--</p>
+        <p class="clock<?= $certification['paused'] ? ' is-paused' : '' ?>"
+           data-ends-at="<?= e($certification['endsAt']) ?>"
+           data-duration-seconds="<?= e((string) $certification['durationSeconds']) ?>"
+           data-paused="<?= $certification['paused'] ? 'true' : 'false' ?>"
+           data-remaining-seconds="<?= e((string) $certification['remainingSeconds']) ?>">--:--:--</p>
         <dl class="details">
           <div><dt>PERID</dt><dd><?= e($certification['perid']) ?></dd></div>
           <div><dt><?= e(t('home.location')) ?></dt><dd><?= e($certification['location']) ?></dd></div>
           <div><dt><?= e(t('board.started')) ?></dt><dd><?= e(format_datetime($certification['startedAt'])) ?></dd></div>
         </dl>
-        <form method="post" action="/admin.php" data-prevent-double-submit>
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="stop">
-          <input type="hidden" name="location" value="<?= e($locationParam) ?>">
-          <input type="hidden" name="certification_id" value="<?= e((string) $certification['id']) ?>">
-          <button class="btn btn--danger" type="submit"><?= e(t('cert.stop')) ?></button>
-        </form>
+        <div class="board-card__actions">
+          <div class="extend-controls" data-extend-controls data-certification-id="<?= e((string) $certification['id']) ?>">
+            <button class="btn btn--small" type="button" data-extend-seconds="60"><?= e(t('cert.extend_1')) ?></button>
+            <button class="btn btn--small" type="button" data-extend-seconds="300"><?= e(t('cert.extend_5')) ?></button>
+            <form method="post" action="/admin.php" data-prevent-double-submit>
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="extend">
+              <input type="hidden" name="location" value="<?= e($locationParam) ?>">
+              <input type="hidden" name="certification_id" value="<?= e((string) $certification['id']) ?>">
+              <input type="number" name="extension_minutes" min="1" max="120" placeholder="<?= e(t('cert.extend_custom_placeholder')) ?>">
+              <button class="btn btn--small" type="submit"><?= e(t('cert.extend_apply')) ?></button>
+            </form>
+          </div>
+          <form method="post" action="/admin.php" data-prevent-double-submit>
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="<?= $certification['paused'] ? 'resume' : 'pause' ?>">
+            <input type="hidden" name="location" value="<?= e($locationParam) ?>">
+            <input type="hidden" name="certification_id" value="<?= e((string) $certification['id']) ?>">
+            <button class="btn" type="submit"><?= e($certification['paused'] ? t('cert.resume') : t('cert.pause')) ?></button>
+          </form>
+          <form method="post" action="/admin.php" data-prevent-double-submit>
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="stop">
+            <input type="hidden" name="location" value="<?= e($locationParam) ?>">
+            <input type="hidden" name="certification_id" value="<?= e((string) $certification['id']) ?>">
+            <button class="btn btn--danger" type="submit"><?= e(t('cert.stop')) ?></button>
+          </form>
+        </div>
       <?php else: ?>
         <p class="clock clock--idle">--:--:--</p>
         <p class="muted"><?= e(t('board.free')) ?> <?= e(strtolower(t('board.title'))) ?>.</p>
@@ -127,7 +156,7 @@ ob_start();
   <p class="muted"><?= e(t('history.help')) ?></p>
   <table class="table">
     <thead>
-      <tr><th>#</th><th>PERID</th><th><?= e(t('board.title')) ?></th><th><?= e(t('home.location')) ?></th><th><?= e(t('history.start')) ?></th><th><?= e(t('history.end')) ?></th><th><?= e(t('history.stopped')) ?></th><th><?= e(t('history.by')) ?></th></tr>
+      <tr><th>#</th><th>PERID</th><th><?= e(t('board.title')) ?></th><th><?= e(t('home.location')) ?></th><th><?= e(t('history.start')) ?></th><th><?= e(t('history.end')) ?></th><th><?= e(t('history.stopped')) ?></th><th><?= e(t('history.by')) ?></th><th><?= e(t('history.extended_by')) ?></th></tr>
     </thead>
     <tbody>
     <?php foreach ($history as $row): ?>
@@ -140,10 +169,11 @@ ob_start();
         <td><?= e(format_datetime($row['ends_at'])) ?></td>
         <td><?= e(format_datetime($row['stopped_at'])) ?></td>
         <td><?= e($row['started_by']) ?></td>
+        <td><?= e($row['extended_by'] !== null ? $row['extended_by'] . ' (+' . (int) round(((int) $row['extended_seconds']) / 60) . ' min)' : '—') ?></td>
       </tr>
     <?php endforeach; ?>
     <?php if ($history === []): ?>
-      <tr><td colspan="8" class="muted"><?= e(t('history.none')) ?></td></tr>
+      <tr><td colspan="9" class="muted"><?= e(t('history.none')) ?></td></tr>
     <?php endif; ?>
     </tbody>
   </table>

@@ -75,6 +75,11 @@ foreach (['beep', 'bell', 'chime', 'alert'] as $sound) {
     check("vertaling sound.$sound bestaat", t('sound.' . $sound) !== 'sound.' . $sound);
 }
 check('vertaling sound.select bestaat', t('sound.select') !== 'sound.select');
+check('vertaling sound.test bestaat', t('sound.test') !== 'sound.test');
+check('vertaling sound.volume bestaat', t('sound.volume') !== 'sound.volume');
+check('vertaling cert.pause bestaat', t('cert.pause') !== 'cert.pause');
+check('vertaling cert.resume bestaat', t('cert.resume') !== 'cert.resume');
+check('vertaling history.extended_by bestaat', t('history.extended_by') !== 'history.extended_by');
 check('vertaling board.rules_title bestaat', t('board.rules_title') !== 'board.rules_title');
 check('vertaling board.rules_none bestaat', t('board.rules_none') !== 'board.rules_none');
 check('vertaling board.expired_status bestaat', t('board.expired_status') !== 'board.expired_status');
@@ -95,6 +100,10 @@ $schema = (string) file_get_contents(dirname(__DIR__) . '/database/schema.sql');
 check('schema bevat board_rules_nl', str_contains($schema, 'board_rules_nl TEXT'));
 check('schema bevat board_rules_de', str_contains($schema, 'board_rules_de TEXT'));
 check('migratie 0003 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0003_board_rules.sql'));
+check('migratie 0004 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0004_extensions_and_pause.sql'));
+check('schema bevat certification_extensions', str_contains($schema, 'certification_extensions'));
+check('schema bevat paused_at', str_contains($schema, 'paused_at'));
+check('schema bevat auto_closed', str_contains($schema, 'auto_closed'));
 
 echo "QR-code\n";
 $matrix = QrCode::matrix('http://localhost:8080/board.php?board=1');
@@ -193,6 +202,84 @@ if (!$dbAvailable) {
 
             stop_certification($id);
             check('bord is vrij na het stoppen', !board_state($location, $free)['running']);
+
+            $error = null;
+            try {
+                stop_certification($id);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('een al gestopte certificatie kan niet nog eens stoppen', $error !== null);
+
+            echo "Extra tijd\n";
+            $id2 = start_certification([
+                'perid' => '654321',
+                'board' => $free,
+                'location_id' => $locationId,
+                'duration_minutes' => 5,
+            ], $userId);
+            $beforeEndsAt = strtotime(db()->query('SELECT ends_at FROM certifications WHERE id = ' . $id2)->fetchColumn());
+
+            $newEndsAt = extend_certification($id2, 60, $userId);
+            check('extend_certification verlengt ends_at', strtotime($newEndsAt) === $beforeEndsAt + 60);
+            check('extensie wordt gelogd', certification_extension_total($id2) === 60);
+
+            $error = null;
+            try {
+                extend_certification($id2, MAX_EXTENSION_SECONDS, $userId);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('meer dan 120 minuten totale extra tijd wordt geweigerd', $error !== null);
+
+            $error = null;
+            try {
+                extend_certification(999999, 60, $userId);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('extra tijd op onbestaande certificatie wordt geweigerd', $error !== null);
+
+            echo "Pauzeren\n";
+            pause_certification($id2);
+            $pausedState = board_state($location, $free);
+            check('certificatie is gepauzeerd', $pausedState['certification']['paused'] === true);
+
+            $error = null;
+            try {
+                pause_certification($id2);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('een al gepauzeerde certificatie kan niet nogmaals pauzeren', $error !== null);
+
+            $endsAtBeforeResume = strtotime(db()->query('SELECT ends_at FROM certifications WHERE id = ' . $id2)->fetchColumn());
+            sleep(1);
+            resume_certification($id2);
+            $endsAtAfterResume = strtotime(db()->query('SELECT ends_at FROM certifications WHERE id = ' . $id2)->fetchColumn());
+            check('hervatten verschuift ends_at met het pauze-interval', $endsAtAfterResume > $endsAtBeforeResume);
+            check('certificatie is niet meer gepauzeerd na hervatten', !board_state($location, $free)['certification']['paused']);
+
+            $error = null;
+            try {
+                resume_certification($id2);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('een niet-gepauzeerde certificatie kan niet hervatten', $error !== null);
+
+            stop_certification($id2);
+
+            echo "Auto-sluiten\n";
+            db()->prepare('UPDATE certifications SET stopped_at = ? WHERE id = ?')
+                ->execute([date('Y-m-d H:i:s', time() - AUTO_CLOSE_AFTER_SECONDS - 60), $id2]);
+            $closedCount = auto_close_expired_certifications();
+            check('auto_close_expired_certifications sluit verlopen certificaties', $closedCount >= 1);
+            $autoClosedRow = db()->query('SELECT auto_closed FROM certifications WHERE id = ' . $id2)->fetch();
+            check('certificatie is als auto_closed gemarkeerd', (int) $autoClosedRow['auto_closed'] === 1);
+
+            db()->prepare('DELETE FROM certification_extensions WHERE certification_id = ?')->execute([$id2]);
+            db()->prepare('DELETE FROM certifications WHERE id = ?')->execute([$id2]);
 
             db()->prepare('DELETE FROM certifications WHERE id = ?')->execute([$id]);
         }

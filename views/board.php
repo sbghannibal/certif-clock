@@ -14,10 +14,17 @@ ob_start();
   <p class="board-view__label"><?= e(t('board.title')) ?> <?= e((string) $state['board']) ?> · <?= e($state['location']['name']) ?></p>
 
   <?php if ($certification !== null): ?>
-    <p class="clock clock--xl" data-ends-at="<?= e($certification['endsAt']) ?>">--:--:--</p>
+    <p class="clock clock--xl<?= $certification['paused'] ? ' is-paused' : '' ?>"
+       data-ends-at="<?= e($certification['endsAt']) ?>"
+       data-duration-seconds="<?= e((string) $certification['durationSeconds']) ?>"
+       data-paused="<?= $certification['paused'] ? 'true' : 'false' ?>"
+           data-remaining-seconds="<?= e((string) $certification['remainingSeconds']) ?>">--:--:--</p>
     <p class="board-view__meta" data-board-meta>
       PERID <strong data-board-perid><?= e($certification['perid']) ?></strong> ·
       <span data-board-location><?= e($certification['location']) ?></span>
+      <?php if ($certification['paused']): ?>
+        · <span class="badge badge--paused"><?= e(t('cert.paused_badge')) ?></span>
+      <?php endif; ?>
     </p>
     <p class="board-view__expired" data-expired-message hidden><?= e(t('board.expired')) ?></p>
   <?php else: ?>

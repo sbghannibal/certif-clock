@@ -30,6 +30,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', t('flash.certification_stopped'));
                 break;
 
+            case 'pause':
+                pause_certification((int) ($_POST['certification_id'] ?? 0));
+                flash('success', t('flash.certification_paused'));
+                break;
+
+            case 'resume':
+                resume_certification((int) ($_POST['certification_id'] ?? 0));
+                flash('success', t('flash.certification_resumed'));
+                break;
+
+            case 'extend':
+                $extensionSeconds = isset($_POST['extension_minutes']) && $_POST['extension_minutes'] !== ''
+                    ? (int) round(((float) $_POST['extension_minutes']) * 60)
+                    : (int) ($_POST['extension_seconds'] ?? 0);
+                extend_certification(
+                    (int) ($_POST['certification_id'] ?? 0),
+                    $extensionSeconds,
+                    (int) $user['id']
+                );
+                flash('success', t('flash.certification_extended'));
+                break;
+
             default:
                 flash('error', t('flash.unknown_action'));
         }
@@ -52,8 +74,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/admin.php' . $suffix);
 }
 
+auto_close_expired_certifications();
+
 $locations = list_locations();
 $selectedLocation = resolve_active_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
+
+if (($_GET['format'] ?? '') === 'json') {
+    json_response([
+        'boards' => $selectedLocation !== null ? all_board_states($selectedLocation) : [],
+    ]);
+}
 
 render('admin', [
     'user' => $user,

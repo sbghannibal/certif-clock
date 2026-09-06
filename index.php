@@ -10,7 +10,7 @@ app_boot();
 
 $selectedLocation = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
 if ($selectedLocation !== null) {
-    init_i18n($selectedLocation, true);
+    init_i18n($selectedLocation, !is_logged_in());
 }
 
 render('home', [

@@ -14,7 +14,9 @@ if ($location === null) {
     render('error', ['message' => t('error.unknown_location')]);
     exit;
 }
-init_i18n($location, true);
+// De klok volgt de taal van de aangemelde gebruiker; publieke bezoekers
+// krijgen de standaardtaal van de locatie.
+init_i18n($location, !is_logged_in());
 
 $board = $_GET['board'] ?? 1;
 if (!is_valid_board($board)) {

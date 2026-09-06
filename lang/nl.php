@@ -5,6 +5,9 @@ return [
     'nav.dashboard' => 'Dashboard',
     'nav.login' => 'Aanmelden',
     'nav.logout' => 'Afmelden',
+    'nav.account' => 'Mijn account',
+    'nav.owner' => 'Beheer',
+    'nav.back_to_dashboard' => 'Terug naar dashboard',
     'nav.language' => 'Taal',
     'footer.text' => 'certif-clock · certificatieklokken voor maximaal %s borden',
     'home.title' => 'Certificatieklokken',
@@ -88,4 +91,8 @@ return [
     'flash.location_deleted' => 'Locatie verwijderd.',
     'flash.unknown_action' => 'Onbekende actie.',
     'flash.action_failed_user_certifications' => 'Actie mislukt: deze gebruiker heeft nog certificaties op zijn naam staan.',
+    'account.title' => 'Mijn account',
+    'owner.title' => 'Beheer',
+    'owner.intro' => 'Beheer locaties en gebruikers.',
+    'language.preference_help' => 'Deze taal wordt ook gebruikt voor de klokken die je aangemeld opent.',
 ];

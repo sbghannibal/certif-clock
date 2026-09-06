@@ -5,6 +5,9 @@ return [
     'nav.dashboard' => 'Dashboard',
     'nav.login' => 'Sign in',
     'nav.logout' => 'Sign out',
+    'nav.account' => 'My account',
+    'nav.owner' => 'Management',
+    'nav.back_to_dashboard' => 'Back to dashboard',
     'nav.language' => 'Language',
     'footer.text' => 'certif-clock · certification clocks for up to %s boards',
     'home.title' => 'Certification clocks',
@@ -88,4 +91,8 @@ return [
     'flash.location_deleted' => 'Location deleted.',
     'flash.unknown_action' => 'Unknown action.',
     'flash.action_failed_user_certifications' => 'Action failed: this user still has certifications linked to their account.',
+    'account.title' => 'My account',
+    'owner.title' => 'Management',
+    'owner.intro' => 'Manage locations and users.',
+    'language.preference_help' => 'This language is also used for the clocks you open while signed in.',
 ];

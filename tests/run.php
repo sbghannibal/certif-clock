@@ -60,6 +60,13 @@ check('Duits is ondersteund', is_supported_language('de'));
 set_translation_language('fr');
 check('vertaling wordt geladen', t('nav.login') === 'Connexion');
 check('ontbrekende key valt veilig terug op key', t('niet.bestaand') === 'niet.bestaand');
+$referenceKeys = array_keys(load_language_file(DEFAULT_LANGUAGE));
+foreach (supported_languages() as $language) {
+    check(
+        "taalbestand $language bevat alle sleutels",
+        array_keys(load_language_file($language)) === $referenceKeys
+    );
+}
 set_translation_language(DEFAULT_LANGUAGE);
 
 echo "QR-code\n";

@@ -8,7 +8,11 @@ require_once __DIR__ . '/app/bootstrap.php';
 
 app_boot();
 
+$selectedLocation = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
+
 render('home', [
-    'boards' => all_board_states(),
+    'locations' => list_locations(),
+    'selectedLocation' => $selectedLocation,
+    'boards' => $selectedLocation !== null ? all_board_states($selectedLocation) : [],
     'user' => current_user(),
 ]);

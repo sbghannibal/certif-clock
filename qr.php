@@ -16,7 +16,14 @@ if (!is_valid_board($board)) {
     exit('Onbekend bord.');
 }
 
-$url = base_url() . '/board.php?board=' . (int) $board;
+$location = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
+if ($location === null) {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    exit('Onbekende locatie.');
+}
+
+$url = base_url() . board_url($location['slug'], (int) $board);
 
 header('Content-Type: image/png');
 header('Cache-Control: public, max-age=3600');

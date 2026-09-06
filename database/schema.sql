@@ -10,11 +10,22 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS locations (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Standaardlocaties; de oplossing blijft generiek, extra locaties kunnen via het
+-- adminpaneel toegevoegd/hernoemd/verwijderd worden.
+INSERT IGNORE INTO locations (name) VALUES ('Gent'), ('Berchem'), ('Aarschot');
+
 CREATE TABLE IF NOT EXISTS certifications (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   perid VARCHAR(10) NOT NULL,
   board TINYINT UNSIGNED NOT NULL,
-  location VARCHAR(120) NOT NULL,
+  location_id INT UNSIGNED NOT NULL,
   duration_seconds INT UNSIGNED NOT NULL,
   started_at DATETIME NOT NULL,
   ends_at DATETIME NOT NULL,
@@ -23,5 +34,6 @@ CREATE TABLE IF NOT EXISTS certifications (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT chk_certifications_board CHECK (board BETWEEN 1 AND 3),
   CONSTRAINT fk_certifications_user FOREIGN KEY (started_by) REFERENCES users (id),
-  INDEX idx_certifications_board (board, started_at)
+  CONSTRAINT fk_certifications_location FOREIGN KEY (location_id) REFERENCES locations (id),
+  INDEX idx_certifications_board (location_id, board, started_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

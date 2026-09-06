@@ -1,0 +1,24 @@
+{
+  "name": "certif-clock",
+  "version": "1.0.0",
+  "description": "A webpage that keeps track of certifications start and end times",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/sbghannibal/certif-clock"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "qrcode": "^1.5.4"
+  },
+  "private": true
+}

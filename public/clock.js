@@ -31,12 +31,34 @@ function playAlarm() {
   [0, 0.6, 1.2, 1.8].forEach(beep);
 }
 
-async function api(url, options) {
-  const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  const data = await response.json().catch(() => ({}));
+let csrfToken = null;
+
+async function api(url, options = {}) {
+  const send = async () => {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+    const response = await fetch(url, { ...options, headers });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  };
+
+  let { response, data } = await send();
+  if (response.status === 403 && !csrfSafe(options.method) && url !== '/api/me') {
+    await refreshCsrfToken();
+    ({ response, data } = await send());
+  }
+  if (typeof data.csrfToken === 'string') csrfToken = data.csrfToken;
   if (!response.ok) throw new Error(data.error || 'Er ging iets mis');
+  return data;
+}
+
+function csrfSafe(method) {
+  return !method || method.toUpperCase() === 'GET';
+}
+
+async function refreshCsrfToken() {
+  const response = await fetch('/api/me', { headers: { 'Content-Type': 'application/json' } });
+  const data = await response.json().catch(() => ({}));
+  if (typeof data.csrfToken === 'string') csrfToken = data.csrfToken;
   return data;
 }

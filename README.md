@@ -49,6 +49,9 @@ npm test
 
 ## API
 
+Schrijvende aanvragen (`POST`, `DELETE`) vereisen de header `X-CSRF-Token` met het token dat je
+via `GET /api/me` ontvangt.
+
 | Methode  | Pad                            | Toegang | Omschrijving                         |
 | -------- | ------------------------------ | ------- | ------------------------------------ |
 | `POST`   | `/api/login`                   | publiek | Aanmelden                            |

@@ -10,7 +10,9 @@ if (!process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET is niet ingesteld, er wordt een tijdelijke waarde gebruikt.');
 }
 if (!process.env.OWNER_PASSWORD) {
-  console.warn(`Standaard owner login: ${ownerUsername} / ${ownerPassword} (wijzig dit!).`);
+  console.warn(
+    `OWNER_PASSWORD is niet ingesteld, het standaard wachtwoord wordt gebruikt voor "${ownerUsername}". Wijzig dit!`
+  );
 }
 
 const app = createApp({

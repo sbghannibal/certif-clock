@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const crypto = require('node:crypto');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -57,6 +58,53 @@ function requireOwner(req, res, next) {
   next();
 }
 
+/* Double-submit CSRF token: de client leest het token via /api/me en stuurt het mee
+   in de X-CSRF-Token header bij elke schrijvende aanvraag. */
+function csrfToken(req) {
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+  }
+  return req.session.csrfToken;
+}
+
+function verifyCsrf(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const expected = req.session.csrfToken;
+  const provided = req.get('X-CSRF-Token');
+  if (
+    !expected ||
+    typeof provided !== 'string' ||
+    provided.length !== expected.length ||
+    !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
+  ) {
+    return res.status(403).json({ error: 'Ongeldig of ontbrekend CSRF-token' });
+  }
+  return next();
+}
+
+/* Eenvoudige in-memory rate limiter per IP. */
+function rateLimiter({ windowMs = 60_000, max = 300 } = {}) {
+  const hits = new Map();
+  return function limit(req, res, next) {
+    const now = Date.now();
+    const key = req.ip || 'unknown';
+    const entry = hits.get(key);
+    if (!entry || entry.resetAt <= now) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+    } else if (entry.count >= max) {
+      return res.status(429).json({ error: 'Te veel aanvragen, probeer later opnieuw' });
+    } else {
+      entry.count += 1;
+    }
+    if (hits.size > 5000) {
+      for (const [ip, value] of hits) {
+        if (value.resetAt <= now) hits.delete(ip);
+      }
+    }
+    return next();
+  };
+}
+
 function createApp(options = {}) {
   const dbFile = options.dbFile || path.join(__dirname, '..', 'data', 'certif-clock.db');
   const db = createDatabase(dbFile);
@@ -78,6 +126,8 @@ function createApp(options = {}) {
       },
     })
   );
+  app.use(rateLimiter({ windowMs: 60_000, max: 600 }));
+  app.use(verifyCsrf);
 
   app.post('/api/login', (req, res) => {
     const { username, password } = req.body || {};
@@ -97,7 +147,7 @@ function createApp(options = {}) {
   });
 
   app.get('/api/me', (req, res) => {
-    res.json({ user: req.session.user || null });
+    res.json({ user: req.session.user || null, csrfToken: csrfToken(req) });
   });
 
   app.get('/api/boards', (req, res) => {

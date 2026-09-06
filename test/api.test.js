@@ -19,9 +19,11 @@ async function startServer() {
 
 function client(base) {
   let cookie = '';
-  return async function request(path, options = {}) {
+  let csrf = '';
+  async function request(path, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
     if (cookie) headers.Cookie = cookie;
+    if (csrf) headers['X-CSRF-Token'] = csrf;
     const response = await fetch(`${base}${path}`, {
       ...options,
       headers,
@@ -31,8 +33,11 @@ function client(base) {
     if (setCookie) cookie = setCookie.split(';')[0];
     const type = response.headers.get('content-type') || '';
     const body = type.includes('application/json') ? await response.json() : await response.text();
+    if (body && typeof body.csrfToken === 'string') csrf = body.csrfToken;
     return { status: response.status, body };
-  };
+  }
+  request.init = () => request('/api/me');
+  return request;
 }
 
 test('certif-clock API', async (t) => {
@@ -41,6 +46,17 @@ test('certif-clock API', async (t) => {
 
   const owner = client(base);
   const expert = client(base);
+  await owner.init();
+  await expert.init();
+
+  await t.test('een schrijvende aanvraag zonder CSRF-token wordt geweigerd', async () => {
+    const res = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'owner', password: 'owner1234' }),
+    });
+    assert.strictEqual(res.status, 403);
+  });
 
   await t.test('3 borden zijn beschikbaar en vrij', async () => {
     const res = await owner('/api/boards');

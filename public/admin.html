@@ -278,6 +278,7 @@
 
       logoutButton.addEventListener('click', async () => {
         await api('/api/logout', { method: 'POST' });
+        await refreshCsrfToken();
         applyUser(null);
       });
 

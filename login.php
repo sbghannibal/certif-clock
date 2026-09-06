@@ -10,7 +10,7 @@ app_boot();
 
 $next = (string) ($_GET['next'] ?? '/admin.php');
 // Enkel interne paden toelaten (geen open redirect).
-if ($next === '' || $next[0] !== '/' || str_starts_with($next, '//')) {
+if ($next === '' || $next[0] !== '/' || str_starts_with($next, '//') || str_starts_with($next, '/\\')) {
     $next = '/admin.php';
 }
 

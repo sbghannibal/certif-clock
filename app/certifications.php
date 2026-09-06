@@ -98,28 +98,46 @@ function start_certification(array $input, int $userId): int
     }
 
     $board = (int) $board;
-    if (board_state($board)['running']) {
-        throw new InvalidArgumentException('Dit bord is al bezet.');
-    }
-
     $durationSeconds = (int) round((float) $duration * 60);
     $now = time();
-    $statement = db()->prepare(
-        'INSERT INTO certifications
-            (perid, board, location, duration_seconds, started_at, ends_at, started_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
-    );
-    $statement->execute([
-        $perid,
-        $board,
-        $location,
-        $durationSeconds,
-        date('Y-m-d H:i:s', $now),
-        date('Y-m-d H:i:s', $now + $durationSeconds),
-        $userId,
-    ]);
 
-    return (int) db()->lastInsertId();
+    // Bezetting nakijken en invoegen in één transactie, zodat twee gelijktijdige
+    // aanvragen niet allebei hetzelfde bord kunnen starten.
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $lock = $pdo->prepare(
+            'SELECT id FROM certifications
+              WHERE board = ? AND stopped_at IS NULL
+              ORDER BY id DESC LIMIT 1 FOR UPDATE'
+        );
+        $lock->execute([$board]);
+        if ($lock->fetch()) {
+            throw new InvalidArgumentException('Dit bord is al bezet.');
+        }
+
+        $statement = $pdo->prepare(
+            'INSERT INTO certifications
+                (perid, board, location, duration_seconds, started_at, ends_at, started_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $statement->execute([
+            $perid,
+            $board,
+            $location,
+            $durationSeconds,
+            date('Y-m-d H:i:s', $now),
+            date('Y-m-d H:i:s', $now + $durationSeconds),
+            $userId,
+        ]);
+        $id = (int) $pdo->lastInsertId();
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    return $id;
 }
 
 function stop_certification(int $id): void

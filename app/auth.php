@@ -34,7 +34,32 @@ function session_start_secure(): void
 
 function current_user(): ?array
 {
-    return $_SESSION['user'] ?? null;
+    static $verified = false;
+
+    $user = $_SESSION['user'] ?? null;
+    if ($user === null || $verified) {
+        return $user;
+    }
+
+    // De rol (en het bestaan) van de gebruiker opnieuw nakijken, zodat een
+    // verwijderde of aangepaste account geen geldige sessie behoudt.
+    $statement = db()->prepare('SELECT id, username, role FROM users WHERE id = ?');
+    $statement->execute([(int) $user['id']]);
+    $row = $statement->fetch();
+    if (!$row) {
+        unset($_SESSION['user']);
+
+        return null;
+    }
+
+    $verified = true;
+    $_SESSION['user'] = [
+        'id' => (int) $row['id'],
+        'username' => $row['username'],
+        'role' => $row['role'],
+    ];
+
+    return $_SESSION['user'];
 }
 
 function is_logged_in(): bool

@@ -88,6 +88,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $redirectLocation = (string) ($_POST['location'] ?? '');
+    if ($action === 'start') {
+        // Na het starten meteen de locatie tonen waarvoor gestart werd, ook als
+        // die verschilt van de eerder bekeken/gefilterde locatie.
+        $startedLocation = find_location_by_id((int) ($_POST['location_id'] ?? 0));
+        if ($startedLocation !== null) {
+            $redirectLocation = $startedLocation['slug'];
+        }
+    }
     $suffix = $redirectLocation !== '' ? '?location=' . rawurlencode($redirectLocation) : '';
     redirect('/admin.php' . $suffix);
 }

@@ -1,0 +1,6 @@
+# De applicatiecode staat in de basismap; enkel de entrypoints en assets zijn publiek.
+<FilesMatch "^(\.env|\.env\.example|config\.php)$">
+  Require all denied
+</FilesMatch>
+
+RedirectMatch 403 ^/(app|views|database|tests)/.*$

@@ -11,7 +11,7 @@ if (!process.env.SESSION_SECRET) {
 }
 if (!process.env.OWNER_PASSWORD) {
   console.warn(
-    `OWNER_PASSWORD is niet ingesteld, het standaard wachtwoord wordt gebruikt voor "${ownerUsername}". Wijzig dit!`
+    'OWNER_PASSWORD is niet ingesteld, er wordt een standaard wachtwoord gebruikt. Wijzig dit!'
   );
 }
 

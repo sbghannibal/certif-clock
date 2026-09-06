@@ -138,8 +138,8 @@ function start_certification(array $input, int $userId): int
         $id = (int) $pdo->lastInsertId();
         $pdo->commit();
     } catch (Throwable $exception) {
-        $pdo->rollBack();
-        throw $exception;
+    $pdo->rollBack();
+    throw $exception;
     }
 
     return $id;

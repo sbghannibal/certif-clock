@@ -85,6 +85,33 @@ ob_start();
 </section>
 
 <section class="card">
+  <h2><?= e(t('board.rules_title')) ?></h2>
+  <p class="muted"><?= e(t('board.rules_help')) ?></p>
+  <?php foreach ($locations as $location): ?>
+    <form method="post" action="/owner.php" class="form board-rules-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="save_board_rules">
+      <input type="hidden" name="location_id" value="<?= e((string) $location['id']) ?>">
+      <fieldset class="board-rules-form__fieldset">
+        <legend><?= e($location['name']) ?></legend>
+        <?php foreach (supported_languages() as $language): ?>
+          <label><?= e(strtoupper($language)) ?>
+            <textarea name="board_rules_<?= e($language) ?>" rows="3" maxlength="5000"
+                      placeholder="<?= e(t('board.rules_none')) ?>"><?= e($location['board_rules_' . $language] ?? '') ?></textarea>
+          </label>
+        <?php endforeach; ?>
+        <div>
+          <button class="btn btn--primary btn--small" type="submit"><?= e(t('board.rules_save')) ?></button>
+        </div>
+      </fieldset>
+    </form>
+  <?php endforeach; ?>
+  <?php if ($locations === []): ?>
+    <p class="muted"><?= e(t('locations.none')) ?></p>
+  <?php endif; ?>
+</section>
+
+<section class="card">
   <h2><?= e(t('users.title')) ?></h2>
   <form method="post" action="/owner.php" class="form form--inline">
     <?= csrf_field() ?>

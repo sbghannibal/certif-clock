@@ -30,7 +30,16 @@ ob_start();
         <noscript><button class="btn" type="submit"><?= e(t('home.show')) ?></button></noscript>
       </form>
     <?php endif; ?>
-    <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+    <div class="sound-picker">
+      <label><?= e(t('sound.select')) ?>
+        <select data-sound-select>
+          <?php foreach (['beep', 'bell', 'chime', 'alert'] as $sound): ?>
+            <option value="<?= e($sound) ?>"><?= e(t('sound.' . $sound)) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+    </div>
   </div>
 </section>
 

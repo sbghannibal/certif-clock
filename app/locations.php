@@ -17,14 +17,52 @@ function location_slug(string $name): string
     return trim($slug, '-');
 }
 
+/** Kolomnamen van de bordregels per taal (vaste mapping, nooit vrije invoer). */
+function board_rule_columns(): array
+{
+    return [
+        'nl' => 'board_rules_nl',
+        'en' => 'board_rules_en',
+        'fr' => 'board_rules_fr',
+        'de' => 'board_rules_de',
+    ];
+}
+
+/** Normaliseert een databaserij tot een locatie-array met slug en regels. */
+function hydrate_location(array $row): array
+{
+    $row['id'] = (int) $row['id'];
+    $row['default_language'] = normalize_language($row['default_language'] ?? null);
+    $row['slug'] = location_slug($row['name']);
+    foreach (board_rule_columns() as $column) {
+        $row[$column] = trim((string) ($row[$column] ?? ''));
+    }
+
+    return $row;
+}
+
+/**
+ * Geeft de bordregels van een locatie in de gevraagde taal, met de Engelse
+ * versie als fallback (dezelfde conventie als de vertalingen).
+ */
+function board_rules_for_language(array $location, string $language): string
+{
+    $columns = board_rule_columns();
+    $column = $columns[$language] ?? $columns[DEFAULT_LANGUAGE];
+    $rules = trim((string) ($location[$column] ?? ''));
+    if ($rules === '' && $column !== $columns[DEFAULT_LANGUAGE]) {
+        $rules = trim((string) ($location[$columns[DEFAULT_LANGUAGE]] ?? ''));
+    }
+
+    return $rules;
+}
+
 /** @return array<int, array{id:int, name:string, slug:string, default_language:string, created_at:string}> */
 function list_locations(): array
 {
-    $rows = db()->query('SELECT id, name, default_language, created_at FROM locations ORDER BY name')->fetchAll() ?: [];
+    $rows = db()->query('SELECT * FROM locations ORDER BY name')->fetchAll() ?: [];
     foreach ($rows as &$row) {
-        $row['id'] = (int) $row['id'];
-        $row['default_language'] = normalize_language($row['default_language'] ?? null);
-        $row['slug'] = location_slug($row['name']);
+        $row = hydrate_location($row);
     }
 
     return $rows;
@@ -32,17 +70,14 @@ function list_locations(): array
 
 function find_location_by_id(int $id): ?array
 {
-    $statement = db()->prepare('SELECT id, name, default_language, created_at FROM locations WHERE id = ?');
+    $statement = db()->prepare('SELECT * FROM locations WHERE id = ?');
     $statement->execute([$id]);
     $row = $statement->fetch();
     if (!$row) {
         return null;
     }
-    $row['id'] = (int) $row['id'];
-    $row['default_language'] = normalize_language($row['default_language'] ?? null);
-    $row['slug'] = location_slug($row['name']);
 
-    return $row;
+    return hydrate_location($row);
 }
 
 function find_location_by_slug(string $slug): ?array
@@ -172,4 +207,31 @@ function delete_location(int $id): void
 
     $delete = db()->prepare('DELETE FROM locations WHERE id = ?');
     $delete->execute([$id]);
+}
+
+/**
+ * Bewaart de bordregels van een locatie per taal. Lege regels worden als NULL
+ * opgeslagen zodat /board.php weet dat er niets getoond moet worden.
+ *
+ * @param array<string, string> $rules per taalcode (nl/en/fr/de) de tekst
+ */
+function save_board_rules(int $id, array $rules): void
+{
+    $statement = db()->prepare('SELECT id FROM locations WHERE id = ?');
+    $statement->execute([$id]);
+    if (!$statement->fetch()) {
+        throw new InvalidArgumentException('Locatie niet gevonden.');
+    }
+
+    $assignments = [];
+    $params = [];
+    foreach (board_rule_columns() as $language => $column) {
+        $text = trim((string) ($rules[$language] ?? ''));
+        $assignments[] = $column . ' = ?';
+        $params[] = $text === '' ? null : $text;
+    }
+    $params[] = $id;
+
+    $update = db()->prepare('UPDATE locations SET ' . implode(', ', $assignments) . ' WHERE id = ?');
+    $update->execute($params);
 }

@@ -443,9 +443,84 @@ body {
 }
 
 .footer {
-  padding: 2rem 0;
-  color: var(--muted);
+  padding: 1rem 0;
+}
+
+/* Geluidskeuze naast de locatiekeuze */
+.sound-picker {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.board-view__sound {
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.sound-picker label {
+  display: grid;
+  gap: 0.35rem;
   font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--proximus-purple-dark);
+}
+
+.sound-picker select {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+/* Bordregels onderaan de klokweergave */
+.board-rules {
+  max-width: 60ch;
+  margin: 2rem auto 0;
+  text-align: left;
+  white-space: pre-line;
+}
+
+.board-rules h2 {
+  color: var(--proximus-purple-dark);
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Formulier voor bordregels in het beheer */
+.board-rules-form__fieldset {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.board-rules-form__fieldset legend {
+  font-weight: 700;
+  color: var(--proximus-purple-dark);
+  padding: 0 0.35rem;
+}
+
+.board-rules-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.board-rules-form textarea:focus {
+  outline: 3px solid rgba(92, 45, 145, 0.25);
+  border-color: var(--proximus-purple);
 }
 
 @media (max-width: 600px) {

@@ -17,7 +17,8 @@ $user = $user ?? null;
   <title><?= e($pageTitle) ?> · certif-clock</title>
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
-<body data-sound-enabled="<?= e(t('sound.enabled')) ?>" data-submitting="<?= e(t('form.submitting')) ?>">
+<body data-sound-enabled="<?= e(t('sound.enabled')) ?>" data-submitting="<?= e(t('form.submitting')) ?>"
+      data-expired-label="<?= e(t('board.expired_status')) ?>" data-expired-message-label="<?= e(t('board.expired')) ?>">
   <header class="topbar">
     <div class="container topbar__inner">
       <a class="brand" href="/index.php">
@@ -61,9 +62,7 @@ $user = $user ?? null;
     <?= $content ?>
   </main>
 
-  <footer class="footer">
-    <div class="container"><?= e(sprintf(t('footer.text'), (string) board_count())) ?></div>
-  </footer>
+  <footer class="footer" aria-hidden="true"></footer>
   <script src="/assets/js/clock.js" defer></script>
 </body>
 </html>

@@ -13,7 +13,15 @@ klok via een directe link of QR-code.
   (`/qr.php?location=gent&board=1`) die naar die link verwijst. Nieuwe locaties werken meteen mee,
   zonder codewijziging.
 - **Geluidssignaal** wanneer de timer afgelopen is (klik eenmalig op "Geluid activeren", browsers
-  laten geluid pas toe na een gebruikersactie) plus de melding "Tijd is om!".
+  laten geluid pas toe na een gebruikersactie) plus de melding "Tijd is om!". Je kiest zelf het
+  alarmsignaal (Beep, Bel, Klokkenspel of Alarm) via de geluidskeuze naast de locatiekeuze; die
+  voorkeur wordt per browser bewaard in `localStorage`. De mp3-bestanden staan in
+  `assets/sounds/`; als zo'n bestand niet afgespeeld kan worden valt de klok terug op een
+  ingebouwd WebAudio-signaal.
+- Zodra een timer afloopt springt de statusbadge van "Bezig" naar **"Afgelopen"** en wordt de
+  pagina na een paar seconden automatisch ververst.
+- **Bordregels** per locatie: een owner legt ze vast in vier talen op `/owner.php`; ze verschijnen
+  onderaan de klok van `/board.php` in de taal van de klok.
 - De klok van een bord ververst zichzelf elke 5 seconden via een lichte achtergrondaanvraag, zodat
   een net gestarte of gestopte certificatie meteen zichtbaar is zonder volledige paginaherlaad.
 - **Dashboard** (`/admin.php`) voor experten en owners: de actieve locatie kies je in de header,
@@ -49,7 +57,7 @@ assets zijn bedoeld om rechtstreeks opgevraagd te worden.
 | `config.php` | Configuratie op basis van omgevingsvariabelen / `.env`             |
 | `app/`       | Bootstrap, database, authenticatie, locaties, domeinlogica, QR-generator |
 | `views/`     | Templates                                                          |
-| `assets/`    | CSS en JavaScript (Proximus-thema, aftelklok, alarm)               |
+| `assets/`    | CSS en JavaScript (Proximus-thema, aftelklok, alarm) + `sounds/` met alarmsignalen |
 | `database/`  | `schema.sql` voor MySQL + `migrations/` voor bestaande databases   |
 | `tests/`     | Lichte testset (`php tests/run.php`)                               |
 
@@ -97,6 +105,17 @@ mysql -u <user> -p <database> < database/migrations/0002_i18n_languages.sql
 Nieuwe installaties krijgen deze velden meteen via `database/schema.sql`. Admin-/expertaccounts
 staan in de tabel `users` en hebben `language CHAR(2) NOT NULL DEFAULT 'en'`. Locaties hebben
 `default_language CHAR(2) NOT NULL DEFAULT 'en'`.
+
+### Bordregels migreren
+
+Voor bestaande installaties voeg je de vier regelvelden (`board_rules_nl`, `board_rules_en`,
+`board_rules_fr`, `board_rules_de`) aan `locations` toe met:
+
+```bash
+mysql -u <user> -p <database> < database/migrations/0003_board_rules.sql
+```
+
+Nieuwe installaties krijgen deze kolommen meteen via `database/schema.sql`.
 
 Taalkeuze werkt als volgt:
 

@@ -25,9 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim((string) ($_POST['username'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
     if (attempt_login($username, $password)) {
+        init_i18n();
         redirect($next);
     }
-    $error = 'Ongeldige gebruikersnaam of wachtwoord.';
+    $error = t('login.invalid');
 }
 
 render('login', [

@@ -82,6 +82,28 @@ tabel (aangevuld met Gent/Berchem/Aarschot als ze nog niet bestaan), koppelt elk
 `location_id` en verwijdert de oude tekstkolom. Nieuwe installaties gebruiken meteen `schema.sql`
 en hebben deze migratie niet nodig.
 
+### Meertaligheid migreren
+
+Voor bestaande installaties voeg je de taalvelden toe met:
+
+```bash
+mysql -u <user> -p <database> < database/migrations/0002_i18n_languages.sql
+```
+
+Nieuwe installaties krijgen deze velden meteen via `database/schema.sql`. Admin-/expertaccounts
+staan in de tabel `users` en hebben `language CHAR(2) NOT NULL DEFAULT 'en'`. Locaties hebben
+`default_language CHAR(2) NOT NULL DEFAULT 'en'`.
+
+Taalkeuze werkt als volgt:
+
+- nieuwe bezoekers vallen standaard terug op Engels;
+- gewone pagina's gebruiken eerst een geldige `?lang=nl|en|fr|de`, daarna de taalvoorkeur van de
+  ingelogde admin, daarna de sessie en ten slotte Engels;
+- de header bevat een taalkeuze NL/EN/FR/DE; bij ingelogde admins wordt die keuze ook in `users.language`
+  opgeslagen;
+- publieke borden/klokken gebruiken standaard `locations.default_language` van de gekozen locatie,
+  tenzij er een geldige `?lang=` override in de URL staat.
+
 ### Eerste start (admin install)
 
 Bij de allereerste start controleert de applicatie of de tabel `users` leeg is. Is dat zo, dan wordt

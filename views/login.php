@@ -4,12 +4,12 @@ if (!defined('CERTIF_CLOCK')) {
     exit('Directe toegang is niet toegestaan.');
 }
 
-$pageTitle = 'Aanmelden';
+$pageTitle = t('login.title');
 ob_start();
 ?>
 <section class="card card--narrow">
-  <h1>Aanmelden</h1>
-  <p class="muted">Het dashboard is enkel toegankelijk voor experten en owners.</p>
+  <h1><?= e(t('login.title')) ?></h1>
+  <p class="muted"><?= e(t('login.intro')) ?></p>
 
   <?php if ($error !== null): ?>
     <p class="alert alert--error"><?= e($error) ?></p>
@@ -17,13 +17,13 @@ ob_start();
 
   <form method="post" action="/login.php?next=<?= e(rawurlencode($next)) ?>" class="form">
     <?= csrf_field() ?>
-    <label>Gebruikersnaam
+    <label><?= e(t('login.username')) ?>
       <input type="text" name="username" autocomplete="username" required maxlength="100">
     </label>
-    <label>Wachtwoord
+    <label><?= e(t('login.password')) ?>
       <input type="password" name="password" autocomplete="current-password" required>
     </label>
-    <button class="btn btn--primary" type="submit">Aanmelden</button>
+    <button class="btn btn--primary" type="submit"><?= e(t('nav.login')) ?></button>
   </form>
 </section>
 <?php

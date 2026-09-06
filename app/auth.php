@@ -43,7 +43,7 @@ function current_user(): ?array
 
     // De rol (en het bestaan) van de gebruiker opnieuw nakijken, zodat een
     // verwijderde of aangepaste account geen geldige sessie behoudt.
-    $statement = db()->prepare('SELECT id, username, role FROM users WHERE id = ?');
+    $statement = db()->prepare('SELECT id, username, role, language FROM users WHERE id = ?');
     $statement->execute([(int) $user['id']]);
     $row = $statement->fetch();
     if (!$row) {
@@ -57,6 +57,7 @@ function current_user(): ?array
         'id' => (int) $row['id'],
         'username' => $row['username'],
         'role' => $row['role'],
+        'language' => normalize_language($row['language'] ?? null),
     ];
 
     return $_SESSION['user'];
@@ -98,7 +99,7 @@ function require_owner(): array
 
 function attempt_login(string $username, string $password): bool
 {
-    $statement = db()->prepare('SELECT id, username, password_hash, role FROM users WHERE username = ?');
+    $statement = db()->prepare('SELECT id, username, password_hash, role, language FROM users WHERE username = ?');
     $statement->execute([$username]);
     $row = $statement->fetch();
 
@@ -111,6 +112,7 @@ function attempt_login(string $username, string $password): bool
         'id' => (int) $row['id'],
         'username' => $row['username'],
         'role' => $row['role'],
+        'language' => normalize_language($row['language'] ?? null),
     ];
 
     return true;

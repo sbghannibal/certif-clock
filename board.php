@@ -11,14 +11,15 @@ app_boot();
 $location = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
 if ($location === null) {
     http_response_code(404);
-    render('error', ['message' => 'Onbekende locatie.']);
+    render('error', ['message' => t('error.unknown_location')]);
     exit;
 }
+init_i18n($location, true);
 
 $board = $_GET['board'] ?? 1;
 if (!is_valid_board($board)) {
     http_response_code(404);
-    render('error', ['message' => 'Onbekend bord.']);
+    render('error', ['message' => t('error.unknown_board')]);
     exit;
 }
 $board = (int) $board;

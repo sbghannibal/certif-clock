@@ -54,6 +54,14 @@ echo "Locaties\n";
 check('slug van "Sint-Niklaas" is generiek', location_slug('Sint-Niklaas') === 'sint-niklaas');
 check('slug negeert hoofdletters/spaties', location_slug('  GENT  ') === 'gent');
 
+echo "i18n\n";
+check('Engels is de fallbacktaal', normalize_language('xx') === 'en');
+check('Duits is ondersteund', is_supported_language('de'));
+set_translation_language('fr');
+check('vertaling wordt geladen', t('nav.login') === 'Connexion');
+check('ontbrekende key valt veilig terug op key', t('niet.bestaand') === 'niet.bestaand');
+set_translation_language(DEFAULT_LANGUAGE);
+
 echo "QR-code\n";
 $matrix = QrCode::matrix('http://localhost:8080/board.php?board=1');
 check('versie 3 matrix (29x29)', count($matrix) === 29 && count($matrix[0]) === 29);
@@ -80,7 +88,7 @@ if (!$dbAvailable) {
     skip('locaties CRUD', 'geen MySQL-verbinding of schema');
     skip('wachtwoord wijzigen en genereren', 'geen MySQL-verbinding of schema');
 } else {
-    $statement = db()->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'expert')");
+    $statement = db()->prepare("INSERT INTO users (username, password_hash, role, language) VALUES (?, ?, 'expert', 'de')");
     $username = 'test-' . bin2hex(random_bytes(4));
     $statement->execute([$username, password_hash('test-wachtwoord', PASSWORD_DEFAULT)]);
     $userId = (int) db()->lastInsertId();
@@ -156,6 +164,7 @@ if (!$dbAvailable) {
         }
 
         echo "Locaties\n";
+        check('nieuwe locatie valt terug op Engels', $location['default_language'] === 'en');
         $duplicate = null;
         try {
             create_location($location['name']);
@@ -164,15 +173,19 @@ if (!$dbAvailable) {
         }
         check('dubbele locatienaam wordt geweigerd', $duplicate !== null);
 
-        rename_location($locationId, $location['name'] . '-hernoemd');
-        check('locatie hernoemen werkt', find_location_by_id($locationId)['name'] === $location['name'] . '-hernoemd');
+        rename_location($locationId, $location['name'] . '-hernoemd', 'fr');
+        $renamedLocation = find_location_by_id($locationId);
+        check('locatie hernoemen werkt', $renamedLocation['name'] === $location['name'] . '-hernoemd');
+        check('locatietaal wijzigen werkt', $renamedLocation['default_language'] === 'fr');
 
         check('resolve_location vindt via slug', resolve_location(location_slug($location['name'] . '-hernoemd'))['id'] === $locationId);
         check('resolve_location vindt via id', resolve_location((string) $locationId)['id'] === $locationId);
 
         echo "Wachtwoorden\n";
-        $created = create_user('test-' . bin2hex(random_bytes(4)), null, 'expert');
+        $created = create_user('test-' . bin2hex(random_bytes(4)), null, 'expert', 'fr');
         check('wachtwoord wordt automatisch gegenereerd', $created['password'] !== null && strlen($created['password']) >= 8);
+        $createdRow = db()->query('SELECT language FROM users WHERE id = ' . (int) $created['id'])->fetch();
+        check('gebruikerstaal wordt bewaard', $createdRow['language'] === 'fr');
 
         change_password($userId, 'test-wachtwoord', 'nieuw-wachtwoord-123', 'nieuw-wachtwoord-123');
         $row = db()->query('SELECT password_hash FROM users WHERE id = ' . $userId)->fetch();

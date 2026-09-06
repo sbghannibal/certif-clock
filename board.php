@@ -8,6 +8,13 @@ require_once __DIR__ . '/app/bootstrap.php';
 
 app_boot();
 
+$location = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
+if ($location === null) {
+    http_response_code(404);
+    render('error', ['message' => 'Onbekende locatie.']);
+    exit;
+}
+
 $board = $_GET['board'] ?? 1;
 if (!is_valid_board($board)) {
     http_response_code(404);
@@ -15,7 +22,7 @@ if (!is_valid_board($board)) {
     exit;
 }
 $board = (int) $board;
-$state = board_state($board);
+$state = board_state($location, $board);
 
 if (($_GET['format'] ?? '') === 'json') {
     json_response($state);

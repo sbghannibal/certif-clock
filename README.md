@@ -7,14 +7,23 @@ klok via een directe link of QR-code.
 
 ## Functionaliteit
 
-- Maximaal **3 borden** met een digitale aftelklok.
-- **Directe link** per bord (`/board.php?board=1`) en een **QR-code** (`/qr.php?board=1`) die naar
-  die link verwijst.
+- Maximaal **3 borden per locatie** met een digitale aftelklok. Locaties (bv. Gent, Berchem,
+  Aarschot) worden beheerd in de database, niet als vrije tekst.
+- **Directe link** per locatie + bord (`/board.php?location=gent&board=1`) en een **QR-code**
+  (`/qr.php?location=gent&board=1`) die naar die link verwijst. Nieuwe locaties werken meteen mee,
+  zonder codewijziging.
 - **Geluidssignaal** wanneer de timer afgelopen is (klik eenmalig op "Geluid activeren", browsers
   laten geluid pas toe na een gebruikersactie) plus de melding "Tijd is om!".
+- De klok van een bord ververst zichzelf elke 5 seconden via een lichte achtergrondaanvraag, zodat
+  een net gestarte of gestopte certificatie meteen zichtbaar is zonder volledige paginaherlaad.
 - **Dashboard** (`/admin.php`) met twee niveaus:
-  - `expert`: start een certificatie (PERID, bord, locatie, duur) en stopt een lopende klok.
-  - `owner`: kan daarnaast experten (en owners) aanmaken en verwijderen.
+  - `expert`: start een certificatie (PERID, locatie, bord, duur) en stopt een lopende klok, filtert
+    het overzicht op locatie, en kan het eigen wachtwoord wijzigen.
+  - `owner`: kan daarnaast locaties beheren (toevoegen/hernoemen/verwijderen) en experten (en
+    owners) aanmaken en verwijderen. Bij het aanmaken van een gebruiker wordt, als er geen
+    wachtwoord ingevuld wordt, automatisch een sterk wachtwoord gegenereerd en eenmalig getoond.
+- Overzichten tonen enkel **relevante** certificaties: certificaties die nog lopen, in de laatste
+  4 uur gestart zijn, of maximaal 6 uur geleden gestopt zijn.
 - Het dashboard is **nooit toegankelijk zonder login**: niet-aangemelde bezoekers worden meteen naar
   `/login.php` gestuurd.
 - Alle gestarte certificaties worden bewaard in **MySQL** (PERID, bord, locatie, duur, start- en
@@ -27,17 +36,17 @@ assets zijn bedoeld om rechtstreeks opgevraagd te worden.
 
 | Pad          | Inhoud                                                            |
 | ------------ | ----------------------------------------------------------------- |
-| `index.php`  | Publiek overzicht van de drie borden                               |
-| `board.php`  | Publieke klok van één bord (`?board=1`, `&format=json` voor JSON)   |
-| `qr.php`     | QR-code (PNG) naar de klok van een bord                            |
+| `index.php`  | Publiek overzicht van de borden van één locatie (`?location=gent`) |
+| `board.php`  | Publieke klok van één bord (`?location=gent&board=1`, `&format=json` voor JSON) |
+| `qr.php`     | QR-code (PNG) naar de klok van een bord op een locatie              |
 | `login.php`  | Aanmelden                                                          |
 | `logout.php` | Afmelden (POST met CSRF-token)                                     |
 | `admin.php`  | Dashboard, enkel na login                                          |
 | `config.php` | Configuratie op basis van omgevingsvariabelen / `.env`             |
-| `app/`       | Bootstrap, database, authenticatie, domeinlogica, QR-generator     |
+| `app/`       | Bootstrap, database, authenticatie, locaties, domeinlogica, QR-generator |
 | `views/`     | Templates                                                          |
 | `assets/`    | CSS en JavaScript (Proximus-thema, aftelklok, alarm)               |
-| `database/`  | `schema.sql` voor MySQL                                            |
+| `database/`  | `schema.sql` voor MySQL + `migrations/` voor bestaande databases   |
 | `tests/`     | Lichte testset (`php tests/run.php`)                               |
 
 `app/`, `views/` en `database/` weigeren directe HTTP-toegang (via `.htaccess` én een guard in elk
@@ -58,6 +67,20 @@ php -S localhost:8080 -t .
 
 De applicatie draait daarna op <http://localhost:8080>. In productie zet je de documentroot van
 Apache/Nginx op de basismap van dit project.
+
+### Locaties migreren vanaf een bestaande installatie
+
+Gebruikte je een eerdere versie met een vrije-tekst locatie (`certifications.location`)? Voer dan
+eerst de migratie uit vóór je verdergaat:
+
+```bash
+mysql -u <user> -p <database> < database/migrations/0001_locations.sql
+```
+
+Deze migratie maakt de tabel `locations` aan, zet bestaande locatienamen om naar rijen in die
+tabel (aangevuld met Gent/Berchem/Aarschot als ze nog niet bestaan), koppelt elke certificatie via
+`location_id` en verwijdert de oude tekstkolom. Nieuwe installaties gebruiken meteen `schema.sql`
+en hebben deze migratie niet nodig.
 
 ### Eerste start (admin install)
 
@@ -87,8 +110,14 @@ applicatie een duidelijke installatiepagina met de te nemen stappen.
 
 - Sessiegebaseerde login met `password_hash`/`password_verify`.
 - Harde guard op `/admin.php`: zonder login altijd een redirect naar `/login.php`.
-- Owner-only acties (gebruikersbeheer) geven `403` voor experten.
-- CSRF-token op elke schrijvende POST-actie (starten, stoppen, gebruikersbeheer, afmelden).
+- Owner-only acties (gebruikers- en locatiebeheer) geven `403` voor experten.
+- CSRF-token op elke schrijvende POST-actie (starten, stoppen, gebruikers-/locatiebeheer,
+  wachtwoord wijzigen, afmelden).
+- Locatie wordt bij het starten van een certificatie server-side gevalideerd tegen de
+  `locations`-tabel (geen vrije tekst meer).
+- Wachtwoord wijzigen vereist het huidige wachtwoord, een bevestiging en minstens 8 tekens.
+  Nieuwe accounts krijgen automatisch een sterk, willekeurig wachtwoord als er geen ingevuld werd;
+  enkel de hash wordt bewaard.
 - Eenvoudige rate limiting per IP, met een strengere limiet op de loginpagina.
 - Alle gebruikersinhoud wordt geëscaped bij weergave.
 

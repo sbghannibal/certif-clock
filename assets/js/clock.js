@@ -58,6 +58,61 @@
     });
   }
 
+  function updateBoardView(data) {
+    var section = document.querySelector('[data-board-view]');
+    if (!section) return;
+
+    var clock = section.querySelector('.clock');
+    var meta = section.querySelector('[data-board-meta]');
+    var expiredMessage = section.querySelector('[data-expired-message]');
+    var certification = data.certification;
+
+    if (certification) {
+      if (clock) {
+        clock.setAttribute('data-ends-at', certification.endsAt);
+        clock.classList.remove('clock--idle');
+      }
+      if (meta) {
+        meta.innerHTML =
+          'PERID <strong data-board-perid>' + escapeHtml(certification.perid) + '</strong> \u00b7 ' +
+          '<span data-board-location>' + escapeHtml(certification.location) + '</span>';
+      }
+      if (clock && clock.dataset.alarmPlayed === 'true' && !certification.finished) {
+        clock.dataset.alarmPlayed = 'false';
+        if (expiredMessage) expiredMessage.hidden = true;
+      }
+    } else {
+      if (clock) {
+        clock.setAttribute('data-ends-at', '');
+        clock.classList.add('clock--idle');
+        clock.textContent = '--:--:--';
+        clock.dataset.alarmPlayed = 'false';
+      }
+      if (meta) {
+        meta.textContent = 'Er loopt momenteel geen certificatie op dit bord.';
+      }
+      if (expiredMessage) expiredMessage.hidden = true;
+    }
+  }
+
+  function escapeHtml(value) {
+    var div = document.createElement('div');
+    div.textContent = String(value);
+    return div.innerHTML;
+  }
+
+  function pollBoardView() {
+    var section = document.querySelector('[data-board-view]');
+    if (!section) return;
+    var url = section.getAttribute('data-poll-url');
+    if (!url) return;
+
+    fetch(url, { headers: { Accept: 'application/json' } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) { if (data) updateBoardView(data); })
+      .catch(function () { /* stille herhaling bij een tijdelijke netwerkfout */ });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-enable-sound]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -67,14 +122,29 @@
       });
     });
 
+    // Voorkomt dubbele submits (bv. dubbelklikken op "Starten" of "Stoppen").
+    document.querySelectorAll('form').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        if (form.dataset.submitted === 'true') {
+          return;
+        }
+        form.dataset.submitted = 'true';
+        form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+          button.disabled = true;
+          button.dataset.originalText = button.textContent;
+          button.textContent = 'Bezig...';
+        });
+      });
+    });
+
     tick();
     setInterval(tick, 1000);
 
-    // Haalt periodiek de status op zodat een nieuwe of gestopte certificatie zichtbaar wordt.
+    // Ververst de klok van dit bord zonder volledige paginaherlaad, zodat een
+    // net gestarte of gestopte certificatie meteen zichtbaar is.
     if (document.querySelector('[data-board-view]')) {
-      setInterval(function () {
-        window.location.reload();
-      }, 60000);
+      pollBoardView();
+      setInterval(pollBoardView, 5000);
     }
   });
 })();

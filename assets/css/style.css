@@ -408,6 +408,21 @@ body {
   color: var(--muted);
 }
 
+.generated-password code {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-right: 0.75rem;
+}
+
+.location-filter {
+  margin: 1rem 0;
+}
+
 .footer {
   padding: 2rem 0;
   color: var(--muted);

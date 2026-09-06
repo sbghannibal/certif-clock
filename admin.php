@@ -31,18 +31,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'create_user':
                 require_owner();
-                create_user(
+                $created = create_user(
                     (string) ($_POST['username'] ?? ''),
                     (string) ($_POST['password'] ?? ''),
                     (string) ($_POST['role'] ?? 'expert')
                 );
-                flash('success', 'Gebruiker aangemaakt.');
+                if ($created['password'] !== null) {
+                    flash('generated_password', $created['password']);
+                    flash('success', 'Gebruiker aangemaakt. Het automatisch gegenereerde wachtwoord staat hieronder.');
+                } else {
+                    flash('success', 'Gebruiker aangemaakt.');
+                }
                 break;
 
             case 'delete_user':
                 require_owner();
                 delete_user((int) ($_POST['user_id'] ?? 0), (int) $user['id']);
                 flash('success', 'Gebruiker verwijderd.');
+                break;
+
+            case 'change_password':
+                change_password(
+                    (int) $user['id'],
+                    (string) ($_POST['current_password'] ?? ''),
+                    (string) ($_POST['new_password'] ?? ''),
+                    (string) ($_POST['confirm_password'] ?? '')
+                );
+                flash('success', 'Wachtwoord gewijzigd.');
+                break;
+
+            case 'create_location':
+                require_owner();
+                create_location((string) ($_POST['name'] ?? ''));
+                flash('success', 'Locatie toegevoegd.');
+                break;
+
+            case 'rename_location':
+                require_owner();
+                rename_location((int) ($_POST['location_id'] ?? 0), (string) ($_POST['name'] ?? ''));
+                flash('success', 'Locatie aangepast.');
+                break;
+
+            case 'delete_location':
+                require_owner();
+                delete_location((int) ($_POST['location_id'] ?? 0));
+                flash('success', 'Locatie verwijderd.');
                 break;
 
             default:
@@ -54,13 +87,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('error', 'Actie mislukt: deze gebruiker heeft nog certificaties op zijn naam staan.');
     }
 
-    redirect('/admin.php');
+    $redirectLocation = (string) ($_POST['location'] ?? '');
+    $suffix = $redirectLocation !== '' ? '?location=' . rawurlencode($redirectLocation) : '';
+    redirect('/admin.php' . $suffix);
 }
+
+$locations = list_locations();
+$selectedLocation = resolve_location(isset($_GET['location']) ? (string) $_GET['location'] : null);
 
 render('admin', [
     'user' => $user,
-    'boards' => all_board_states(),
-    'history' => certification_history(50),
+    'locations' => $locations,
+    'selectedLocation' => $selectedLocation,
+    'boards' => $selectedLocation !== null ? all_board_states($selectedLocation) : [],
+    'history' => certification_history(50, $selectedLocation['id'] ?? null),
     'users' => is_owner() ? list_users() : [],
     'defaultDuration' => config('app')['default_duration_minutes'],
+    'generatedPassword' => flash('generated_password'),
 ]);

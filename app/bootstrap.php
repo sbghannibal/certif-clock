@@ -16,6 +16,7 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/rate_limit.php';
+require_once __DIR__ . '/locations.php';
 require_once __DIR__ . '/certifications.php';
 require_once __DIR__ . '/users.php';
 

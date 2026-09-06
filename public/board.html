@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Certif Clock - bord</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="board-page">
+      <h1 id="title">Bord</h1>
+      <div id="clock" class="clock big">--:--:--</div>
+      <p id="info" class="muted">Laden...</p>
+      <p id="finished" class="hidden">Tijd is om!</p>
+      <button id="sound" class="secondary">Geluid activeren</button>
+    </div>
+
+    <script src="/clock.js"></script>
+    <script>
+      const board = Number(window.location.pathname.split('/').pop());
+      const clockEl = document.getElementById('clock');
+      const infoEl = document.getElementById('info');
+      const finishedEl = document.getElementById('finished');
+      const soundButton = document.getElementById('sound');
+
+      let endsAt = null;
+      let certificationId = null;
+      let alarmPlayedFor = null;
+      let soundEnabled = false;
+
+      document.getElementById('title').textContent = `Bord ${board}`;
+
+      soundButton.addEventListener('click', () => {
+        soundEnabled = true;
+        playAlarm();
+        soundButton.classList.add('hidden');
+      });
+
+      function tick() {
+        if (!endsAt) {
+          clockEl.textContent = '--:--:--';
+          return;
+        }
+        const seconds = remainingSeconds(endsAt);
+        clockEl.textContent = formatDuration(seconds);
+        clockEl.classList.toggle('finished', seconds <= 0);
+        clockEl.classList.toggle('warning', seconds > 0 && seconds <= 300);
+        finishedEl.classList.toggle('hidden', seconds > 0);
+        if (seconds <= 0 && alarmPlayedFor !== certificationId) {
+          alarmPlayedFor = certificationId;
+          if (soundEnabled) playAlarm();
+        }
+      }
+
+      async function refresh() {
+        try {
+          const state = await api(`/api/boards/${board}`);
+          if (state.certification) {
+            endsAt = state.certification.endsAt;
+            certificationId = state.certification.id;
+            infoEl.textContent = `PERID ${state.certification.perid} · ${state.certification.location}`;
+          } else {
+            endsAt = null;
+            certificationId = null;
+            infoEl.textContent = 'Geen certificatie bezig op dit bord.';
+          }
+        } catch (err) {
+          infoEl.textContent = err.message;
+        }
+        tick();
+      }
+
+      refresh();
+      setInterval(refresh, 15000);
+      setInterval(tick, 1000);
+    </script>
+  </body>
+</html>

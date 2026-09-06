@@ -89,7 +89,7 @@
         clock.dataset.alarmPlayed = 'false';
       }
       if (meta) {
-        meta.textContent = 'Er loopt momenteel geen certificatie op dit bord.';
+        meta.textContent = section.getAttribute('data-idle-message') || '';
       }
       if (expiredMessage) expiredMessage.hidden = true;
     }
@@ -117,7 +117,7 @@
     document.querySelectorAll('[data-enable-sound]').forEach(function (button) {
       button.addEventListener('click', function () {
         enableSound();
-        button.textContent = 'Geluid staat aan';
+        button.textContent = document.body.getAttribute('data-sound-enabled') || button.textContent;
         button.disabled = true;
       });
     });
@@ -132,7 +132,7 @@
         form.querySelectorAll('button[type="submit"]').forEach(function (button) {
           button.disabled = true;
           button.dataset.originalText = button.textContent;
-          button.textContent = 'Bezig...';
+          button.textContent = document.body.getAttribute('data-submitting') || button.textContent;
         });
       });
     });

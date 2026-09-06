@@ -17,12 +17,13 @@ function location_slug(string $name): string
     return trim($slug, '-');
 }
 
-/** @return array<int, array{id:int, name:string, slug:string, created_at:string}> */
+/** @return array<int, array{id:int, name:string, slug:string, default_language:string, created_at:string}> */
 function list_locations(): array
 {
-    $rows = db()->query('SELECT id, name, created_at FROM locations ORDER BY name')->fetchAll() ?: [];
+    $rows = db()->query('SELECT id, name, default_language, created_at FROM locations ORDER BY name')->fetchAll() ?: [];
     foreach ($rows as &$row) {
         $row['id'] = (int) $row['id'];
+        $row['default_language'] = normalize_language($row['default_language'] ?? null);
         $row['slug'] = location_slug($row['name']);
     }
 
@@ -31,13 +32,14 @@ function list_locations(): array
 
 function find_location_by_id(int $id): ?array
 {
-    $statement = db()->prepare('SELECT id, name, created_at FROM locations WHERE id = ?');
+    $statement = db()->prepare('SELECT id, name, default_language, created_at FROM locations WHERE id = ?');
     $statement->execute([$id]);
     $row = $statement->fetch();
     if (!$row) {
         return null;
     }
     $row['id'] = (int) $row['id'];
+    $row['default_language'] = normalize_language($row['default_language'] ?? null);
     $row['slug'] = location_slug($row['name']);
 
     return $row;
@@ -76,7 +78,7 @@ function resolve_location(?string $param): ?array
     return find_location_by_slug($param);
 }
 
-function create_location(string $name): int
+function create_location(string $name, string $defaultLanguage = DEFAULT_LANGUAGE): int
 {
     $name = trim($name);
     if ($name === '' || mb_strlen($name) > 120) {
@@ -88,14 +90,15 @@ function create_location(string $name): int
     if ($exists->fetch()) {
         throw new InvalidArgumentException('Deze locatie bestaat al.');
     }
+    $defaultLanguage = normalize_language($defaultLanguage);
 
-    $statement = db()->prepare('INSERT INTO locations (name) VALUES (?)');
-    $statement->execute([$name]);
+    $statement = db()->prepare('INSERT INTO locations (name, default_language) VALUES (?, ?)');
+    $statement->execute([$name, $defaultLanguage]);
 
     return (int) db()->lastInsertId();
 }
 
-function rename_location(int $id, string $name): void
+function rename_location(int $id, string $name, ?string $defaultLanguage = null): void
 {
     $name = trim($name);
     if ($name === '' || mb_strlen($name) > 120) {
@@ -114,8 +117,15 @@ function rename_location(int $id, string $name): void
         throw new InvalidArgumentException('Deze locatienaam is al in gebruik.');
     }
 
-    $update = db()->prepare('UPDATE locations SET name = ? WHERE id = ?');
-    $update->execute([$name, $id]);
+    if ($defaultLanguage === null) {
+        $update = db()->prepare('UPDATE locations SET name = ? WHERE id = ?');
+        $update->execute([$name, $id]);
+
+        return;
+    }
+
+    $update = db()->prepare('UPDATE locations SET name = ?, default_language = ? WHERE id = ?');
+    $update->execute([$name, normalize_language($defaultLanguage), $id]);
 }
 
 function delete_location(int $id): void

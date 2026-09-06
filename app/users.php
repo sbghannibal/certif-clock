@@ -10,7 +10,7 @@ if (!defined('CERTIF_CLOCK')) {
 
 function list_users(): array
 {
-    return db()->query('SELECT id, username, role, created_at FROM users ORDER BY id')->fetchAll() ?: [];
+    return db()->query('SELECT id, username, role, language, created_at FROM users ORDER BY id')->fetchAll() ?: [];
 }
 
 /** Genereert een sterk, leesbaar wachtwoord (geen verwarrende tekens zoals 0/O/1/l). */
@@ -33,7 +33,7 @@ function generate_password(int $length = 14): string
  * @return array{id:int, password:?string} `password` is enkel gezet als het automatisch
  *                                          gegenereerd werd (om eenmalig te tonen).
  */
-function create_user(string $username, ?string $password, string $role): array
+function create_user(string $username, ?string $password, string $role, string $language = DEFAULT_LANGUAGE): array
 {
     $username = trim($username);
     if (mb_strlen($username) < 3 || mb_strlen($username) > 100) {
@@ -48,6 +48,7 @@ function create_user(string $username, ?string $password, string $role): array
         throw new InvalidArgumentException('Wachtwoord is te kort (min. 8 tekens).');
     }
     $role = $role === 'owner' ? 'owner' : 'expert';
+    $language = normalize_language($language);
 
     $exists = db()->prepare('SELECT id FROM users WHERE username = ?');
     $exists->execute([$username]);
@@ -55,13 +56,18 @@ function create_user(string $username, ?string $password, string $role): array
         throw new InvalidArgumentException('Gebruikersnaam bestaat al.');
     }
 
-    $statement = db()->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-    $statement->execute([$username, password_hash($password, PASSWORD_DEFAULT), $role]);
+    $statement = db()->prepare('INSERT INTO users (username, password_hash, role, language) VALUES (?, ?, ?, ?)');
+    $statement->execute([$username, password_hash($password, PASSWORD_DEFAULT), $role, $language]);
 
     return [
         'id' => (int) db()->lastInsertId(),
         'password' => $generated ? $password : null,
     ];
+}
+
+function change_language(int $userId, string $language): void
+{
+    save_admin_language($userId, $language);
 }
 
 /** Laat een aangemelde gebruiker (owner of expert) zijn eigen wachtwoord wijzigen. */

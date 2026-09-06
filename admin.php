@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($action) {
             case 'start':
                 start_certification($_POST, (int) $user['id']);
-                flash('success', 'Certificatie gestart.');
+                flash('success', t('flash.certification_started'));
                 break;
 
             case 'stop':
                 stop_certification((int) ($_POST['certification_id'] ?? 0));
-                flash('success', 'Certificatie gestopt.');
+                flash('success', t('flash.certification_stopped'));
                 break;
 
             case 'create_user':
@@ -34,20 +34,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $created = create_user(
                     (string) ($_POST['username'] ?? ''),
                     (string) ($_POST['password'] ?? ''),
-                    (string) ($_POST['role'] ?? 'expert')
+                    (string) ($_POST['role'] ?? 'expert'),
+                    (string) ($_POST['language'] ?? DEFAULT_LANGUAGE)
                 );
                 if ($created['password'] !== null) {
                     flash('generated_password', $created['password']);
-                    flash('success', 'Gebruiker aangemaakt. Het automatisch gegenereerde wachtwoord staat hieronder.');
+                    flash('success', t('flash.user_created_generated'));
                 } else {
-                    flash('success', 'Gebruiker aangemaakt.');
+                    flash('success', t('flash.user_created'));
                 }
                 break;
 
             case 'delete_user':
                 require_owner();
                 delete_user((int) ($_POST['user_id'] ?? 0), (int) $user['id']);
-                flash('success', 'Gebruiker verwijderd.');
+                flash('success', t('flash.user_deleted'));
                 break;
 
             case 'change_password':
@@ -57,34 +58,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($_POST['new_password'] ?? ''),
                     (string) ($_POST['confirm_password'] ?? '')
                 );
-                flash('success', 'Wachtwoord gewijzigd.');
+                flash('success', t('flash.password_changed'));
+                break;
+
+            case 'change_language':
+                change_language((int) $user['id'], (string) ($_POST['language'] ?? DEFAULT_LANGUAGE));
+                init_i18n();
+                flash('success', t('flash.language_saved'));
                 break;
 
             case 'create_location':
                 require_owner();
-                create_location((string) ($_POST['name'] ?? ''));
-                flash('success', 'Locatie toegevoegd.');
+                create_location((string) ($_POST['name'] ?? ''), (string) ($_POST['default_language'] ?? DEFAULT_LANGUAGE));
+                flash('success', t('flash.location_added'));
                 break;
 
             case 'rename_location':
                 require_owner();
-                rename_location((int) ($_POST['location_id'] ?? 0), (string) ($_POST['name'] ?? ''));
-                flash('success', 'Locatie aangepast.');
+                rename_location(
+                    (int) ($_POST['location_id'] ?? 0),
+                    (string) ($_POST['name'] ?? ''),
+                    (string) ($_POST['default_language'] ?? DEFAULT_LANGUAGE)
+                );
+                flash('success', t('flash.location_updated'));
                 break;
 
             case 'delete_location':
                 require_owner();
                 delete_location((int) ($_POST['location_id'] ?? 0));
-                flash('success', 'Locatie verwijderd.');
+                flash('success', t('flash.location_deleted'));
                 break;
 
             default:
-                flash('error', 'Onbekende actie.');
+                flash('error', t('flash.unknown_action'));
         }
     } catch (InvalidArgumentException $exception) {
         flash('error', $exception->getMessage());
     } catch (PDOException $exception) {
-        flash('error', 'Actie mislukt: deze gebruiker heeft nog certificaties op zijn naam staan.');
+        flash('error', t('flash.action_failed_user_certifications'));
     }
 
     $redirectLocation = (string) ($_POST['location'] ?? '');

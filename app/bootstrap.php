@@ -15,6 +15,7 @@ require_once __DIR__ . '/env.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/rate_limit.php';
 require_once __DIR__ . '/locations.php';
 require_once __DIR__ . '/certifications.php';
@@ -68,6 +69,7 @@ function app_boot(): void
             );
         }
         ensure_owner_bootstrap();
+        init_i18n();
     } catch (RuntimeException $exception) {
         app_fail($exception->getMessage());
     }

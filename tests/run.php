@@ -69,6 +69,33 @@ foreach (supported_languages() as $language) {
 }
 set_translation_language(DEFAULT_LANGUAGE);
 
+echo "Geluidskeuze\n";
+foreach (['beep', 'bell', 'chime', 'alert'] as $sound) {
+    check("geluidsbestand $sound.mp3 bestaat", is_file(dirname(__DIR__) . '/assets/sounds/' . $sound . '.mp3'));
+    check("vertaling sound.$sound bestaat", t('sound.' . $sound) !== 'sound.' . $sound);
+}
+check('vertaling sound.select bestaat', t('sound.select') !== 'sound.select');
+check('vertaling board.rules_title bestaat', t('board.rules_title') !== 'board.rules_title');
+check('vertaling board.rules_none bestaat', t('board.rules_none') !== 'board.rules_none');
+check('vertaling board.expired_status bestaat', t('board.expired_status') !== 'board.expired_status');
+check('Nederlandse afgelopen-status is "Afgelopen"', load_language_file('nl')['board.expired_status'] === 'Afgelopen');
+
+echo "Bordregels\n";
+check('regelkolommen bestaan per taal', board_rule_columns() === [
+    'nl' => 'board_rules_nl',
+    'en' => 'board_rules_en',
+    'fr' => 'board_rules_fr',
+    'de' => 'board_rules_de',
+]);
+$rulesLocation = ['board_rules_nl' => 'Nederlandse regels', 'board_rules_en' => 'English rules'];
+check('regels in gevraagde taal', board_rules_for_language($rulesLocation, 'nl') === 'Nederlandse regels');
+check('regels vallen terug op Engels', board_rules_for_language($rulesLocation, 'de') === 'English rules');
+check('regels geven leeg bij geen inhoud', board_rules_for_language(['board_rules_en' => ''], 'en') === '');
+$schema = (string) file_get_contents(dirname(__DIR__) . '/database/schema.sql');
+check('schema bevat board_rules_nl', str_contains($schema, 'board_rules_nl TEXT'));
+check('schema bevat board_rules_de', str_contains($schema, 'board_rules_de TEXT'));
+check('migratie 0003 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0003_board_rules.sql'));
+
 echo "QR-code\n";
 $matrix = QrCode::matrix('http://localhost:8080/board.php?board=1');
 check('versie 3 matrix (29x29)', count($matrix) === 29 && count($matrix[0]) === 29);
@@ -184,6 +211,13 @@ if (!$dbAvailable) {
         $renamedLocation = find_location_by_id($locationId);
         check('locatie hernoemen werkt', $renamedLocation['name'] === $location['name'] . '-hernoemd');
         check('locatietaal wijzigen werkt', $renamedLocation['default_language'] === 'fr');
+
+        save_board_rules($locationId, ['nl' => 'Regel 1', 'en' => 'Rule 1', 'fr' => '', 'de' => '']);
+        $rulesLocation = find_location_by_id($locationId);
+        check('bordregels worden bewaard per taal', $rulesLocation['board_rules_nl'] === 'Regel 1'
+            && $rulesLocation['board_rules_en'] === 'Rule 1');
+        check('lege regels worden NULL en leeg na hydrate', ($rulesLocation['board_rules_fr'] ?? '') === '');
+        check('board_rules_for_language valt terug op Engels', board_rules_for_language($rulesLocation, 'fr') === 'Rule 1');
 
         check('resolve_location vindt via slug', resolve_location(location_slug($location['name'] . '-hernoemd'))['id'] === $locationId);
         check('resolve_location vindt via id', resolve_location((string) $locationId)['id'] === $locationId);

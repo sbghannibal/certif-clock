@@ -25,8 +25,25 @@ ob_start();
     <p class="board-view__meta" data-board-meta><?= e(t('board.idle')) ?></p>
   <?php endif; ?>
 
-  <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+  <div class="sound-picker board-view__sound">
+    <label><?= e(t('sound.select')) ?>
+      <select data-sound-select>
+        <?php foreach (['beep', 'bell', 'chime', 'alert'] as $sound): ?>
+          <option value="<?= e($sound) ?>"><?= e(t('sound.' . $sound)) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+  </div>
   <p class="muted"><?= e(t('board.auto_refresh')) ?></p>
+
+  <?php $boardRules = board_rules_for_language($state['location'], current_language()); ?>
+  <?php if ($boardRules !== ''): ?>
+    <section class="board-rules">
+      <h2><?= e(t('board.rules_title')) ?></h2>
+      <p><?= e($boardRules) ?></p>
+    </section>
+  <?php endif; ?>
 </section>
 <?php
 $content = ob_get_clean();

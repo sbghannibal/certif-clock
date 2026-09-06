@@ -58,6 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', t('flash.location_deleted'));
                 break;
 
+            case 'save_board_rules':
+                $rules = [];
+                foreach (supported_languages() as $language) {
+                    $rules[$language] = (string) ($_POST['board_rules_' . $language] ?? '');
+                }
+                save_board_rules((int) ($_POST['location_id'] ?? 0), $rules);
+                flash('success', t('flash.board_rules_saved'));
+                break;
+
             default:
                 flash('error', t('flash.unknown_action'));
         }

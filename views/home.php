@@ -7,27 +7,40 @@ if (!defined('CERTIF_CLOCK')) {
 $pageTitle = t('home.title');
 ob_start();
 ?>
-<section class="hero">
-  <h1><?= e(t('home.title')) ?></h1>
-  <p><?= e(t('home.intro')) ?></p>
-  <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+<section class="hero hero--compact dashboard-header">
+  <div>
+    <h1><?= e(t('home.title')) ?></h1>
+    <p><?= e(t('home.intro')) ?></p>
+  </div>
+  <div class="dashboard-header__actions">
+    <?php if ($locations !== []): ?>
+      <form method="get" action="/index.php" class="form form--inline location-filter">
+        <input type="hidden" name="lang" value="<?= e(current_language()) ?>">
+        <label><?= e(t('home.location')) ?>
+          <select name="location" onchange="this.form.submit()">
+            <?php foreach ($locations as $location): ?>
+              <option value="<?= e($location['slug']) ?>"
+                <?= ($selectedLocation !== null && $selectedLocation['id'] === $location['id']) ? 'selected' : '' ?>>
+                <?= e($location['name']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <noscript><button class="btn" type="submit"><?= e(t('home.show')) ?></button></noscript>
+      </form>
+    <?php endif; ?>
+    <div class="sound-picker">
+      <label><?= e(t('sound.select')) ?>
+        <select data-sound-select>
+          <?php foreach (['beep', 'bell', 'chime', 'alert'] as $sound): ?>
+            <option value="<?= e($sound) ?>"><?= e(t('sound.' . $sound)) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <button class="btn btn--ghost" type="button" data-enable-sound><?= e(t('sound.enable')) ?></button>
+    </div>
+  </div>
 </section>
-
-<?php if ($locations !== []): ?>
-  <form method="get" action="/index.php" class="form form--inline location-filter">
-    <label><?= e(t('home.location')) ?>
-      <select name="location" onchange="this.form.submit()">
-        <?php foreach ($locations as $location): ?>
-          <option value="<?= e($location['slug']) ?>"
-            <?= ($selectedLocation !== null && $selectedLocation['id'] === $location['id']) ? 'selected' : '' ?>>
-            <?= e($location['name']) ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <noscript><button class="btn" type="submit"><?= e(t('home.show')) ?></button></noscript>
-  </form>
-<?php endif; ?>
 
 <?php if ($selectedLocation === null): ?>
   <p class="alert alert--error"><?= e(t('home.no_locations')) ?></p>

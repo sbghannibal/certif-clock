@@ -91,5 +91,5 @@ render('admin', [
     'selectedLocation' => $selectedLocation,
     'boards' => $selectedLocation !== null ? all_board_states($selectedLocation) : [],
     'history' => certification_history(50, $selectedLocation['id'] ?? null),
-    'defaultDuration' => config('app')['default_duration_minutes'],
+    'defaultDuration' => resolve_default_duration_minutes((int) $user['id']),
 ]);

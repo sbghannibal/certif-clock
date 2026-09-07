@@ -32,6 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', t('flash.language_saved'));
                 break;
 
+            case 'save_account_default_duration':
+                $rawDuration = trim((string) ($_POST['default_duration_minutes'] ?? ''));
+                save_account_default_duration_minutes(
+                    (int) $user['id'],
+                    $rawDuration === '' ? null : (int) $rawDuration
+                );
+                flash('success', t('flash.account_default_duration_saved'));
+                break;
+
             default:
                 flash('error', t('flash.unknown_action'));
         }
@@ -46,4 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 render('account', [
     'user' => $user,
+    'accountDefaultDuration' => account_default_duration_minutes((int) $user['id']),
+    'globalDefaultDuration' => global_default_duration_minutes(),
+    'maxDurationMinutes' => (int) config('app')['max_duration_minutes'],
 ]);

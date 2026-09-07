@@ -7,7 +7,17 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('owner', 'expert') NOT NULL DEFAULT 'expert',
   language CHAR(2) NOT NULL DEFAULT 'en',
+  default_duration_minutes SMALLINT UNSIGNED NULL DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Generieke sleutel/waarde-instellingen, bv. de globale standaardduur (in
+-- minuten) die de owner instelt (zie database/migrations/0005_default_duration.sql
+-- voor bestaande databases).
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 

@@ -39,6 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', t('flash.user_deleted'));
                 break;
 
+            case 'reset_user_password':
+                $newPassword = reset_user_password((int) ($_POST['user_id'] ?? 0));
+                flash('generated_password', $newPassword);
+                flash('success', t('flash.password_reset_generated'));
+                break;
+
             case 'create_location':
                 create_location((string) ($_POST['name'] ?? ''), (string) ($_POST['default_language'] ?? DEFAULT_LANGUAGE));
                 flash('success', t('flash.location_added'));
@@ -56,6 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'delete_location':
                 delete_location((int) ($_POST['location_id'] ?? 0));
                 flash('success', t('flash.location_deleted'));
+                break;
+
+            case 'save_default_duration':
+                save_global_default_duration_minutes((int) ($_POST['default_duration_minutes'] ?? 0));
+                flash('success', t('flash.default_duration_saved'));
                 break;
 
             case 'save_board_rules':
@@ -84,4 +95,6 @@ render('owner', [
     'locations' => list_locations(),
     'users' => list_users(),
     'generatedPassword' => flash('generated_password'),
+    'globalDefaultDuration' => global_default_duration_minutes(),
+    'maxDurationMinutes' => (int) config('app')['max_duration_minutes'],
 ]);

@@ -85,6 +85,18 @@ check('vertaling board.rules_none bestaat', t('board.rules_none') !== 'board.rul
 check('vertaling board.expired_status bestaat', t('board.expired_status') !== 'board.expired_status');
 check('Nederlandse afgelopen-status is "Afgelopen"', load_language_file('nl')['board.expired_status'] === 'Afgelopen');
 
+echo "Status-sync (bordweergave)\n";
+// Contract tussen backend en klok-script: "verlopen" bestaat enkel als er geen
+// resterende tijd is én de certificatie niet gepauzeerd is. Zo kan de badge
+// nooit "Tijd is om!" tonen terwijl de klok nog loopt.
+$clockScript = (string) file_get_contents(dirname(__DIR__) . '/assets/js/clock.js');
+check('klok leidt expired af van resterende tijd en pauze', str_contains($clockScript, 'expired: !paused && remaining <= 0'));
+check('klok toont "Tijd is om!" enkel als echt verlopen', str_contains($clockScript, 'expiredMessage.hidden = !state.expired'));
+check('polling past klok en badge meteen opnieuw toe', str_contains($clockScript, "if (data && data.boards) updateAdminBoards(data.boards);"));
+$boardView = (string) file_get_contents(dirname(__DIR__) . '/views/board.php');
+check('bordweergave toont afgelopen-melding bij verlopen certificatie', str_contains($boardView, "\$certification['finished'] ? '' : ' hidden'"));
+check('bordweergave bevat schakelterbare pauze-badge', str_contains($boardView, 'data-paused-badge'));
+
 echo "Bordregels\n";
 check('regelkolommen bestaan per taal', board_rule_columns() === [
     'nl' => 'board_rules_nl',
@@ -268,7 +280,37 @@ if (!$dbAvailable) {
             }
             check('een niet-gepauzeerde certificatie kan niet hervatten', $error !== null);
 
+            echo "Statusconsistentie\n";
+            // board_state mag nooit een tegenspreidige payload geven
+            // (resterende tijd > 0 terwijl finished = true, of omgekeerd),
+            // zodat klok en badge niet kunnen verspringen.
+            $runningCert = board_state($location, $free)['certification'];
+            check('lopende certificatie met resterende tijd is niet finished',
+                $runningCert['remainingSeconds'] > 0 && $runningCert['finished'] === false);
+            pause_certification($id2);
+            $pausedCert = board_state($location, $free)['certification'];
+            check('gepauzeerde certificatie is nooit finished', $pausedCert['finished'] === false);
+            resume_certification($id2);
+
             stop_certification($id2);
+
+            $id3 = start_certification([
+                'perid' => '111222',
+                'board' => $free,
+                'location_id' => $locationId,
+                'duration_minutes' => 5,
+            ], $userId);
+            db()->prepare('UPDATE certifications SET ends_at = ? WHERE id = ?')
+                ->execute([date('Y-m-d H:i:s', time() - 5), $id3]);
+            $expiredCert = board_state($location, $free)['certification'];
+            check('afgelopen certificatie heeft 0 resterende seconden', $expiredCert['remainingSeconds'] === 0);
+            check('afgelopen certificatie is finished', $expiredCert['finished'] === true);
+            extend_certification($id3, 300, $userId);
+            $extendedCert = board_state($location, $free)['certification'];
+            check('verlengde certificatie is meteen niet meer finished',
+                $extendedCert['remainingSeconds'] > 0 && $extendedCert['finished'] === false);
+            db()->prepare('DELETE FROM certification_extensions WHERE certification_id = ?')->execute([$id3]);
+            db()->prepare('DELETE FROM certifications WHERE id = ?')->execute([$id3]);
 
             echo "Auto-sluiten\n";
             db()->prepare('UPDATE certifications SET stopped_at = ? WHERE id = ?')

@@ -10,7 +10,9 @@ ob_start();
 ?>
 <section class="board-view" data-board-view="<?= e((string) $state['board']) ?>"
           data-poll-url="<?= e($state['url']) ?>&format=json"
-          data-idle-message="<?= e(t('board.idle')) ?>">
+          data-idle-message="<?= e(t('board.idle')) ?>"
+          data-paused-label="<?= e(t('cert.paused_badge')) ?>"
+          data-expired-message-label="<?= e(t('board.expired')) ?>">
   <p class="board-view__label"><?= e(t('board.title')) ?> <?= e((string) $state['board']) ?> · <?= e($state['location']['name']) ?></p>
 
   <?php if ($certification !== null): ?>
@@ -22,11 +24,11 @@ ob_start();
     <p class="board-view__meta" data-board-meta>
       PERID <strong data-board-perid><?= e($certification['perid']) ?></strong> ·
       <span data-board-location><?= e($certification['location']) ?></span>
-      <?php if ($certification['paused']): ?>
-        · <span class="badge badge--paused"><?= e(t('cert.paused_badge')) ?></span>
-      <?php endif; ?>
+      <?php // Altijd aanwezig zodat polling de pauze-badge ook kan verwijderen/herplaatsen. ?>
+      <span class="badge badge--paused" data-paused-badge<?= $certification['paused'] ? '' : ' hidden' ?>><?= e(t('cert.paused_badge')) ?></span>
     </p>
-    <p class="board-view__expired" data-expired-message hidden><?= e(t('board.expired')) ?></p>
+    <?php // Toon "Tijd is om!" meteen bij de initiële render als de tijd al om is. ?>
+    <p class="board-view__expired" data-expired-message<?= $certification['finished'] ? '' : ' hidden' ?>><?= e(t('board.expired')) ?></p>
   <?php else: ?>
     <p class="clock clock--xl clock--idle">--:--:--</p>
     <p class="board-view__meta" data-board-meta><?= e(t('board.idle')) ?></p>

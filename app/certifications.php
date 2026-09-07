@@ -96,7 +96,7 @@ function start_certification(array $input, int $userId): int
     $board = $input['board'] ?? null;
     $durationRaw = $input['duration_minutes'] ?? '';
     $duration = ($durationRaw === '' || $durationRaw === null)
-        ? (int) $app['default_duration_minutes']
+        ? resolve_default_duration_minutes($userId)
         : $durationRaw;
 
     if (!preg_match(PERID_PATTERN, $perid)) {

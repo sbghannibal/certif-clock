@@ -18,6 +18,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/rate_limit.php';
 require_once __DIR__ . '/locations.php';
+require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/certifications.php';
 require_once __DIR__ . '/users.php';
 

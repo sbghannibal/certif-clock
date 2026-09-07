@@ -52,6 +52,21 @@ ob_start();
     <button class="btn btn--primary" type="submit"><?= e(t('language.save')) ?></button>
   </form>
 </section>
+
+<section class="card">
+  <h2><?= e(t('duration.title')) ?></h2>
+  <p class="muted"><?= e(sprintf(t('duration.account_help'), $globalDefaultDuration)) ?></p>
+  <form method="post" action="/account.php" class="form form--inline">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_account_default_duration">
+    <label><?= e(t('duration.account')) ?>
+      <input type="number" name="default_duration_minutes" min="1" max="<?= e((string) $maxDurationMinutes) ?>"
+             placeholder="<?= e((string) $globalDefaultDuration) ?>"
+             value="<?= e($accountDefaultDuration !== null ? (string) $accountDefaultDuration : '') ?>">
+    </label>
+    <button class="btn btn--primary" type="submit"><?= e(t('duration.save')) ?></button>
+  </form>
+</section>
 <?php
 $content = ob_get_clean();
 require __DIR__ . '/layout.php';

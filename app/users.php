@@ -10,7 +10,9 @@ if (!defined('CERTIF_CLOCK')) {
 
 function list_users(): array
 {
-    return db()->query('SELECT id, username, role, language, created_at FROM users ORDER BY id')->fetchAll() ?: [];
+    return db()->query(
+        'SELECT id, username, role, language, default_duration_minutes, created_at FROM users ORDER BY id'
+    )->fetchAll() ?: [];
 }
 
 /** Genereert een sterk, leesbaar wachtwoord (geen verwarrende tekens zoals 0/O/1/l). */
@@ -89,6 +91,25 @@ function change_password(int $userId, string $currentPassword, string $newPasswo
 
     $update = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
     $update->execute([password_hash($newPassword, PASSWORD_DEFAULT), $userId]);
+}
+
+/**
+ * Laat de owner een nieuw, automatisch gegenereerd wachtwoord instellen voor
+ * een bestaande gebruiker (bv. na een vergeten wachtwoord).
+ */
+function reset_user_password(int $id): string
+{
+    $statement = db()->prepare('SELECT id FROM users WHERE id = ?');
+    $statement->execute([$id]);
+    if (!$statement->fetch()) {
+        throw new InvalidArgumentException('Gebruiker niet gevonden.');
+    }
+
+    $password = generate_password();
+    $update = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    $update->execute([password_hash($password, PASSWORD_DEFAULT), $id]);
+
+    return $password;
 }
 
 function delete_user(int $id, int $currentUserId): void

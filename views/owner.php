@@ -31,6 +31,20 @@ ob_start();
 <?php endif; ?>
 
 <section class="card">
+  <h2><?= e(t('duration.title')) ?></h2>
+  <p class="muted"><?= e(t('duration.global_help')) ?></p>
+  <form method="post" action="/owner.php" class="form form--inline">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_default_duration">
+    <label><?= e(t('duration.global')) ?>
+      <input type="number" name="default_duration_minutes" min="1" max="<?= e((string) $maxDurationMinutes) ?>"
+             value="<?= e((string) $globalDefaultDuration) ?>" required>
+    </label>
+    <button class="btn btn--primary" type="submit"><?= e(t('duration.save')) ?></button>
+  </form>
+</section>
+
+<section class="card">
   <h2><?= e(t('locations.title')) ?></h2>
   <form method="post" action="/owner.php" class="form form--inline">
     <?= csrf_field() ?>
@@ -148,6 +162,12 @@ ob_start();
         <td><?= e(format_datetime($row['created_at'])) ?></td>
         <td>
           <?php if ((int) $row['id'] !== (int) $user['id']): ?>
+            <form method="post" action="/owner.php" class="form form--inline">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="reset_user_password">
+              <input type="hidden" name="user_id" value="<?= e((string) $row['id']) ?>">
+              <button class="btn btn--small" type="submit"><?= e(t('users.reset_password')) ?></button>
+            </form>
             <form method="post" action="/owner.php">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="delete_user">

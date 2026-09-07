@@ -113,6 +113,9 @@ check('schema bevat board_rules_nl', str_contains($schema, 'board_rules_nl TEXT'
 check('schema bevat board_rules_de', str_contains($schema, 'board_rules_de TEXT'));
 check('migratie 0003 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0003_board_rules.sql'));
 check('migratie 0004 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0004_extensions_and_pause.sql'));
+check('migratie 0005 bestaat', is_file(dirname(__DIR__) . '/database/migrations/0005_default_duration.sql'));
+check('schema bevat settings-tabel', str_contains($schema, 'CREATE TABLE IF NOT EXISTS settings'));
+check('schema bevat default_duration_minutes op users', str_contains($schema, 'default_duration_minutes'));
 check('schema bevat certification_extensions', str_contains($schema, 'certification_extensions'));
 check('schema bevat paused_at', str_contains($schema, 'paused_at'));
 check('schema bevat auto_closed', str_contains($schema, 'auto_closed'));
@@ -377,7 +380,100 @@ if (!$dbAvailable) {
         }
         check('niet-overeenkomende bevestiging wordt geweigerd', $error !== null);
 
+        $oldHash = db()->query('SELECT password_hash FROM users WHERE id = ' . (int) $created['id'])->fetchColumn();
+        $newPassword = reset_user_password((int) $created['id']);
+        check('reset_user_password genereert een wachtwoord van minstens 8 tekens', strlen($newPassword) >= 8);
+        $resetRow = db()->query('SELECT password_hash FROM users WHERE id = ' . (int) $created['id'])->fetch();
+        check('reset_user_password slaat een nieuwe hash op', $resetRow['password_hash'] !== $oldHash);
+        check('reset_user_password levert een geldig wachtwoord op', password_verify($newPassword, $resetRow['password_hash']));
+
+        $error = null;
+        try {
+            reset_user_password(999999);
+        } catch (InvalidArgumentException $exception) {
+            $error = $exception->getMessage();
+        }
+        check('reset_user_password op onbestaande gebruiker wordt geweigerd', $error !== null);
+
         db()->prepare('DELETE FROM users WHERE id = ?')->execute([$created['id']]);
+
+        echo "Standaardduur\n";
+        $originalGlobalDefault = get_setting(SETTING_DEFAULT_DURATION_MINUTES);
+        try {
+            check('zonder instellingen valt terug op 120 minuten', global_default_duration_minutes() === 120);
+            check('resolve_default_duration_minutes valt zonder account/instelling terug op 120',
+                resolve_default_duration_minutes($userId) === 120);
+
+            save_global_default_duration_minutes(90);
+            check('globale standaardduur wordt bewaard', global_default_duration_minutes() === 90);
+            check('resolve_default_duration_minutes gebruikt de globale standaard zonder account-override',
+                resolve_default_duration_minutes($userId) === 90);
+            check('resolve_default_duration_minutes gebruikt de globale standaard zonder gebruiker',
+                resolve_default_duration_minutes(null) === 90);
+
+            save_account_default_duration_minutes($userId, 45);
+            check('account-standaardduur wordt bewaard', account_default_duration_minutes($userId) === 45);
+            check('account-override heeft voorrang op de globale standaard',
+                resolve_default_duration_minutes($userId) === 45);
+
+            save_account_default_duration_minutes($userId, null);
+            check('account-standaardduur kan gewist worden', account_default_duration_minutes($userId) === null);
+            check('na wissen valt terug op de globale standaard', resolve_default_duration_minutes($userId) === 90);
+
+            $error = null;
+            try {
+                save_global_default_duration_minutes(0);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('globale standaardduur 0 wordt geweigerd', $error !== null);
+
+            $error = null;
+            try {
+                save_global_default_duration_minutes(24 * 60 + 1);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('globale standaardduur boven de max wordt geweigerd', $error !== null);
+
+            $error = null;
+            try {
+                save_account_default_duration_minutes($userId, -5);
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
+            check('negatieve account-standaardduur wordt geweigerd', $error !== null);
+
+            $freeBoard = null;
+            for ($i = 1; $i <= board_count(); $i++) {
+                if (!board_state($location, $i)['running']) {
+                    $freeBoard = $i;
+                    break;
+                }
+            }
+            if ($freeBoard === null) {
+                skip('start_certification gebruikt de opgeloste standaardduur', 'alle borden zijn bezet');
+            } else {
+                save_account_default_duration_minutes($userId, 33);
+                $durationId = start_certification([
+                    'perid' => '135791',
+                    'board' => $freeBoard,
+                    'location_id' => $locationId,
+                ], $userId);
+                $durationState = board_state($location, $freeBoard);
+                check('start_certification gebruikt de opgeloste standaardduur zonder expliciete duur',
+                    $durationState['certification']['durationSeconds'] === 33 * 60);
+                stop_certification($durationId);
+                db()->prepare('DELETE FROM certifications WHERE id = ?')->execute([$durationId]);
+            }
+        } finally {
+            save_account_default_duration_minutes($userId, null);
+            if ($originalGlobalDefault === null || $originalGlobalDefault === false) {
+                db()->prepare('DELETE FROM settings WHERE setting_key = ?')->execute([SETTING_DEFAULT_DURATION_MINUTES]);
+            } else {
+                set_setting(SETTING_DEFAULT_DURATION_MINUTES, (string) $originalGlobalDefault);
+            }
+        }
     } finally {
         delete_location($locationId);
         db()->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);

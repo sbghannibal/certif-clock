@@ -88,15 +88,34 @@ ob_start();
   </form>
 </section>
 
-<section class="grid" data-admin-boards data-poll-url="/admin.php?location=<?= e($locationParam) ?>&format=json">
+<section class="grid" data-admin-boards data-poll-url="/admin.php?location=<?= e($locationParam) ?>&format=json"
+         data-label-free="<?= e(t('board.free')) ?>"
+         data-label-busy="<?= e(t('board.busy')) ?>"
+         data-label-paused="<?= e(t('cert.paused_badge')) ?>"
+         data-label-expired="<?= e(t('board.expired_status')) ?>">
   <?php foreach ($boards as $state): ?>
     <?php $certification = $state['certification']; ?>
     <article class="card board-card" data-board="<?= e((string) $state['board']) ?>">
       <header class="card__header">
         <h2><?= e(t('board.title')) ?> <?= e((string) $state['board']) ?></h2>
-        <span class="badge <?= $state['running'] ? ($certification['paused'] ? 'badge--paused' : 'badge--live') : 'badge--idle' ?>">
-          <?= e($state['running'] ? ($certification['paused'] ? t('cert.paused_badge') : t('board.busy')) : t('board.free')) ?>
-        </span>
+        <?php
+        // De badge volgt één afgeleide status, zodat tekst en kleur nooit van
+        // elkaar (of van de resterende tijd) kunnen afwijken.
+        if (!$state['running']) {
+            $badgeClass = 'badge--idle';
+            $badgeText = t('board.free');
+        } elseif ($certification['paused']) {
+            $badgeClass = 'badge--paused';
+            $badgeText = t('cert.paused_badge');
+        } elseif ($certification['finished']) {
+            $badgeClass = 'badge--idle';
+            $badgeText = t('board.expired_status');
+        } else {
+            $badgeClass = 'badge--live';
+            $badgeText = t('board.busy');
+        }
+        ?>
+        <span class="badge <?= $badgeClass ?>" data-board-badge><?= e($badgeText) ?></span>
       </header>
       <?php if ($certification !== null): ?>
         <p class="clock<?= $certification['paused'] ? ' is-paused' : '' ?>"

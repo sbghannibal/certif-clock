@@ -18,7 +18,9 @@ $user = $user ?? null;
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body data-sound-enabled="<?= e(t('sound.enabled')) ?>" data-submitting="<?= e(t('form.submitting')) ?>"
-      data-expired-label="<?= e(t('board.expired_status')) ?>" data-expired-message-label="<?= e(t('board.expired')) ?>">
+      data-expired-label="<?= e(t('board.expired_status')) ?>" data-expired-message-label="<?= e(t('board.expired')) ?>"
+      data-busy-label="<?= e(t('board.busy')) ?>" data-free-label="<?= e(t('board.free')) ?>"
+      data-paused-label="<?= e(t('cert.paused_badge')) ?>">
   <header class="topbar">
     <div class="container topbar__inner">
       <a class="brand" href="/index.php">

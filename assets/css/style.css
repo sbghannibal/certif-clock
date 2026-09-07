@@ -260,6 +260,12 @@ body {
   font-weight: 700;
 }
 
+/* Het [hidden]-attribuut moet altijd winnen van de display hierboven, anders
+   blijft "Tijd is om!" zichtbaar terwijl de klok nog loopt. */
+.board-view__expired[hidden] {
+  display: none;
+}
+
 /* Lijsten */
 .details {
   display: grid;

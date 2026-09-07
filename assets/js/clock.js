@@ -141,60 +141,92 @@
     setTimeout(function () { window.location.reload(); }, REFRESH_AFTER_EXPIRY_MS);
   }
 
-  /* Zet badges van lopende borden meteen op "Afgelopen" zodra de timer om is. */
-  function markExpiredBadges() {
-    var label = document.body.getAttribute('data-expired-label') || '';
-    if (label === '') return;
-    document.querySelectorAll('.badge--live').forEach(function (badge) {
-      var card = badge.closest('.board-card');
-      if (!card) return;
-      var clock = card.querySelector('.clock[data-ends-at]');
-      if (!clock || !clock.classList.contains('is-expired')) return;
-      badge.classList.remove('badge--live');
+  /* Enige bron van waarheid voor de status van een klok: de berekende
+     resterende tijd plus de pauzetoestand. "Verlopen" betekent enkel dat de
+     resterende tijd op is terwijl de certificatie niet gepauzeerd is. */
+  function getClockState(element, now) {
+    var paused = element.getAttribute('data-paused') === 'true';
+    var remaining;
+    if (paused) {
+      // Bij een gepauzeerde certificatie staat de tijd stil: de resterende
+      // tijd is die op het moment van pauzeren en telt niet verder af.
+      remaining = parseFloat(element.getAttribute('data-remaining-seconds') || '0');
+    } else {
+      var endsAt = Date.parse(element.getAttribute('data-ends-at') || '');
+      if (isNaN(endsAt)) return null;
+      remaining = Math.max(0, (endsAt - now) / 1000);
+    }
+    return {
+      remaining: remaining,
+      paused: paused,
+      expired: !paused && remaining <= 0,
+    };
+  }
+
+  /* Werkt de badge van een bordkaart (admin/home) bij op basis van de echte
+     klokstatus. Draait in twee richtingen: een verlopen badge wordt ook weer
+     "Bezig"/"Gepauzeerd" zodra er opnieuw tijd resteert (bv. na verlengen). */
+  function syncCardBadge(element, state) {
+    var card = element.closest('.board-card');
+    var badge = card ? card.querySelector('.badge') : null;
+    if (!badge) return;
+    var labels = document.body.dataset;
+    badge.classList.remove('badge--live', 'badge--idle', 'badge--paused');
+    if (state.paused) {
+      badge.classList.add('badge--paused');
+      badge.textContent = labels.pausedLabel || badge.textContent;
+    } else if (state.expired) {
       badge.classList.add('badge--idle');
-      badge.textContent = label;
-    });
+      badge.textContent = labels.expiredLabel || badge.textContent;
+    } else {
+      badge.classList.add('badge--live');
+      badge.textContent = labels.busyLabel || badge.textContent;
+    }
   }
 
   /* Kleurniveau van de klok op basis van het percentage resterende tijd
-     t.o.v. de totale duur: groen (>80%), oranje (20-80%), rood (<20%). */
-  function applyColor(element, remaining, totalDuration) {
+     t.o.v. de totale duur: groen (>80%), oranje (20-80%), rood (<20%).
+     Bij elke render worden alle statusklassen eerst verwijderd en daarna
+     deterministisch opnieuw toegepast, zodat er nooit een verouderde
+     toestand (bv. is-expired na verlengen) kan blijven hangen. */
+  function applyColor(element, remaining, totalDuration, state) {
+    var expired = state ? state.expired : remaining <= 0;
+    var active = state ? !state.paused && !expired : remaining > 0;
     var percentRemaining = totalDuration > 0 ? (remaining / totalDuration) * 100 : 100;
-    element.classList.toggle('is-warning', remaining > 0 && percentRemaining <= 80 && percentRemaining > 20);
-    element.classList.toggle('is-danger', remaining > 0 && percentRemaining <= 20);
-    element.classList.toggle('is-expired', remaining <= 0);
+    element.classList.remove('is-warning', 'is-danger', 'is-expired');
+    element.classList.toggle('is-warning', active && percentRemaining <= 80 && percentRemaining > 20);
+    element.classList.toggle('is-danger', active && percentRemaining <= 20);
+    element.classList.toggle('is-expired', expired);
   }
 
   function tick() {
     var now = Date.now();
     document.querySelectorAll('.clock[data-ends-at]').forEach(function (element) {
       var totalDuration = parseInt(element.getAttribute('data-duration-seconds') || '0', 10);
-      var paused = element.getAttribute('data-paused') === 'true';
+      var state = getClockState(element, now);
+      if (!state) return;
 
-      var remaining;
-      if (paused) {
-        // Bij een gepauzeerde certificatie staat de tijd stil: toon de
-        // resterende tijd op het moment van pauzeren, zonder verder af te tellen.
-        remaining = parseFloat(element.getAttribute('data-remaining-seconds') || '0');
-        element.textContent = formatDuration(remaining);
-        element.classList.remove('is-warning', 'is-danger', 'is-expired');
-        return;
+      element.textContent = formatDuration(state.remaining);
+      applyColor(element, state.remaining, totalDuration, state);
+
+      var view = element.closest('[data-board-view]');
+      var expiredMessage = view ? view.querySelector('[data-expired-message]') : null;
+      if (expiredMessage) {
+        // "Tijd is om!" wordt enkel getoond als de klok echt verlopen is.
+        expiredMessage.hidden = !state.expired;
       }
+      syncCardBadge(element, state);
 
-      var endsAt = Date.parse(element.getAttribute('data-ends-at'));
-      if (isNaN(endsAt)) return;
-
-      remaining = Math.max(0, (endsAt - now) / 1000);
-      element.textContent = formatDuration(remaining);
-      applyColor(element, remaining, totalDuration);
-
-      if (remaining <= 0 && element.dataset.alarmPlayed !== 'true') {
-        element.dataset.alarmPlayed = 'true';
-        playAlarm();
-        var message = document.querySelector('[data-expired-message]');
-        if (message) message.hidden = false;
-        markExpiredBadges();
+      if (state.expired) {
+        if (element.dataset.alarmPlayed !== 'true') {
+          element.dataset.alarmPlayed = 'true';
+          playAlarm();
+        }
         scheduleExpiryReload();
+      } else if (element.dataset.alarmPlayed === 'true') {
+        // De klok loopt weer (bv. na verlengen/hervatten): het alarm mag bij
+        // een volgende keer aflopen opnieuw afspelen.
+        element.dataset.alarmPlayed = 'false';
       }
     });
   }
@@ -218,14 +250,20 @@
         clock.classList.toggle('is-paused', !!certification.paused);
       }
       if (meta) {
+        // De meta-regel bevat steeds de (mogelijk verborgen) pauze-badge, zodat
+        // die hier nooit als verouderde rest kan achterblijven.
         meta.innerHTML =
           'PERID <strong data-board-perid>' + escapeHtml(certification.perid) + '</strong> · ' +
-          '<span data-board-location>' + escapeHtml(certification.location) + '</span>';
+          '<span data-board-location>' + escapeHtml(certification.location) + '</span> ' +
+          '<span class="badge badge--paused" data-paused-badge' + (certification.paused ? '' : ' hidden') + '>' +
+          escapeHtml(section.getAttribute('data-paused-label') || '') + '</span>';
       }
-      if (clock && clock.dataset.alarmPlayed === 'true' && !certification.finished) {
-        clock.dataset.alarmPlayed = 'false';
-        if (expiredMessage) expiredMessage.hidden = true;
+      if (expiredMessage) {
+        expiredMessage.hidden = !(certification.finished && !certification.paused);
       }
+      // Reken tekst, kleur en alarmstatus meteen opnieuw uit op basis van de
+      // nieuwe data, zodat klok en badge nooit kunnen verspringen.
+      tick();
     } else {
       if (clock) {
         clock.setAttribute('data-ends-at', '');
@@ -261,7 +299,9 @@
 
   /* Ververst enkel de klokken en badges van het admin-dashboard, zonder de
      rest van de pagina (en dus zonder het "Certificatie starten"-formulier)
-     te verstoren. */
+     te verstoren. De badge wordt niet los gepatcht: na het bijwerken van de
+     data-attributen rekent tick() klok én badge opnieuw uit vanuit dezelfde
+     status, zodat ze nooit kunnen verspringen. */
   function updateAdminBoards(boards) {
     boards.forEach(function (state) {
       var card = document.querySelector('.board-card[data-board="' + state.board + '"]');
@@ -271,18 +311,24 @@
       var clock = card.querySelector('.clock[data-ends-at], .clock--idle');
       var certification = state.certification;
 
-      if (badge) {
-        badge.classList.remove('badge--live', 'badge--idle', 'badge--paused');
-        if (!state.running) {
+      if (!state.running || !certification) {
+        // Het bord is vrij geworden (bv. gestopt of automatisch gesloten).
+        if (badge) {
+          badge.classList.remove('badge--live', 'badge--idle', 'badge--paused');
           badge.classList.add('badge--idle');
-        } else if (certification.paused) {
-          badge.classList.add('badge--paused');
-        } else {
-          badge.classList.add('badge--live');
+          badge.textContent = document.body.getAttribute('data-free-label') || badge.textContent;
         }
+        if (clock) {
+          clock.setAttribute('data-ends-at', '');
+          clock.classList.add('clock--idle');
+          clock.classList.remove('is-paused', 'is-warning', 'is-danger', 'is-expired');
+          clock.textContent = '--:--:--';
+          clock.dataset.alarmPlayed = 'false';
+        }
+        return;
       }
 
-      if (clock && certification) {
+      if (clock) {
         clock.setAttribute('data-ends-at', certification.endsAt);
         clock.setAttribute('data-duration-seconds', String(certification.durationSeconds));
         clock.setAttribute('data-paused', certification.paused ? 'true' : 'false');
@@ -291,6 +337,8 @@
         clock.classList.toggle('is-paused', !!certification.paused);
       }
     });
+    // Pas klokken en badges meteen toe op de nieuwe data.
+    tick();
   }
 
   function pollAdminBoards() {

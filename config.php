@@ -24,10 +24,6 @@ return [
         'password' => env('DB_PASSWORD', ''),
         'charset' => env('DB_CHARSET', 'utf8mb4'),
     ],
-    'owner' => [
-        'username' => env('OWNER_USERNAME', 'owner'),
-        'password' => env('OWNER_PASSWORD', ''),
-    ],
     'session' => [
         'name' => env('SESSION_NAME', 'certif_clock_session'),
         'secure_cookies' => env('SECURE_COOKIES', 'false') === 'true',

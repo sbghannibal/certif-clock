@@ -50,6 +50,7 @@ assets zijn bedoeld om rechtstreeks opgevraagd te worden.
 | `board.php`  | Publieke klok van één bord (`?location=gent&board=1`, `&format=json` voor JSON) |
 | `qr.php`     | QR-code (PNG) naar de klok van een bord op een locatie              |
 | `login.php`  | Aanmelden                                                          |
+| `install.php`| Eenmalige installatie op een lege database                         |
 | `logout.php` | Afmelden (POST met CSRF-token)                                     |
 | `admin.php`  | Dashboard (klokken, certificaties, historiek), enkel na login       |
 | `account.php`| Eigen wachtwoord en taalvoorkeur, enkel na login                    |
@@ -72,13 +73,24 @@ PHP-bestand).
 ## Installatie
 
 ```bash
-cp .env.example .env      # vul de MySQL-gegevens en het owner-wachtwoord in
-mysql -u <user> -p <database> < database/schema.sql
+cp .env.example .env      # vul DB_HOST, DB_PORT, DB_NAME, DB_USER en DB_PASSWORD in
 php -S localhost:8080 -t .
 ```
 
-De applicatie draait daarna op <http://localhost:8080>. In productie zet je de documentroot van
-Apache/Nginx op de basismap van dit project.
+Maak vooraf zelf een **lege, afzonderlijke MySQL-database** en een databasegebruiker aan.
+De installer gebruikt de DB-gegevens uit `.env`, maakt geen database aan en heeft op die
+database CREATE, SELECT, INSERT, UPDATE, DELETE en REFERENCES nodig. Importeer voor een
+nieuwe installatie **niet** vooraf `database/schema.sql`.
+
+Bezoek <http://localhost:8080/install.php>, kies een gebruikersnaam (3–100 tekens), een
+wachtwoord (minstens 8 tekens) en bevestig het wachtwoord. Alleen een geldige POST met
+CSRF-token maakt de actuele tabellen uit `database/schema.sql`, de standaardlocaties
+Gent/Berchem/Aarschot en precies één eerste beheeraccount met rol **owner** aan.
+Klik daarna op **Inloggen** en gebruik dit account op `/login.php`.
+
+In productie zet je de documentroot van Apache/Nginx op de basismap van dit project.
+Bescherm de eerste installatie tegen onbevoegde bezoekers (bijvoorbeeld met tijdelijke
+webservertoegangsbeperking), gebruik HTTPS en zet `SECURE_COOKIES=true`.
 
 ### Locaties migreren vanaf een bestaande installatie
 
@@ -128,12 +140,32 @@ Taalkeuze werkt als volgt:
   bezoekers `locations.default_language` van de gekozen locatie, tenzij er een geldige `?lang=`
   override in de URL staat.
 
-### Eerste start (admin install)
+### Eenmalige installatie en herstel
 
-Bij de allereerste start controleert de applicatie of de tabel `users` leeg is. Is dat zo, dan wordt
-automatisch een **owner-account** aangemaakt met `OWNER_USERNAME` en `OWNER_PASSWORD`. Daarna gebeurt
-dit nooit opnieuw. Ontbreekt `OWNER_PASSWORD` (of is het korter dan 8 tekens), dan toont de
-applicatie een duidelijke installatiepagina met de te nemen stappen.
+De installer sluit zodra **enige tabel gegevens bevat**, niet alleen wanneer `users` gevuld is.
+Ook standaardlocaties uit een handmatig geïmporteerd schema tellen als bestaande gegevens:
+daarmee is publieke accountaanmaak niet toegestaan. Onbekende tabellen (ook lege), views en
+niet-InnoDB-tabellen worden conservatief geweigerd. Gebruik een afzonderlijke lege database;
+de installer overschrijft of verwijdert nooit bestaande gegevens.
+
+Installatieaanvragen worden per database geserialiseerd met een MySQL advisory lock.
+De leegtecontrole wordt onder die lock opnieuw uitgevoerd vóór en na de schema-aanmaak.
+MySQL-DDL heeft implicit commits: bij een fout kunnen lege tabellen achterblijven.
+Alleen lege bekende InnoDB-tabellen kunnen opnieuw worden geprobeerd; onverenigbare
+gedeeltelijke schema's vereisen controle/herstel door de beheerder. Seeds, owner en de
+duurzame instelling `settings.installation_completed` worden samen in één transactie
+opgeslagen. Een fout rolt deze gegevens terug, niet de schemawijzigingen.
+
+Het voltooiingssignaal houdt de installer ook gesloten wanneer later alle gebruikers
+en locaties verwijderd worden. Verwijder dit signaal niet om toegang te herstellen.
+Verbindings-/inspectiefouten sluiten installatie eveneens af. Na een onzekere netwerkfout:
+herlaad de installer en probeer bij een gesloten installatie eerst de gekozen login.
+
+`OWNER_USERNAME` en `OWNER_PASSWORD` worden niet meer gebruikt; normale pagina's maken
+nooit accounts aan. Bestaande installaties blijven zonder nieuw voltooiingssignaal werken
+en kunnen hun normale geauthenticeerde gebruikersbeheer blijven gebruiken. Bij een
+bestaande database zonder gebruikers moet een bevoegde beheerder de toegang herstellen,
+niet de publieke installer. Bestaande databases worden via de migraties bijgewerkt.
 
 ### Omgevingsvariabelen
 
@@ -144,8 +176,6 @@ applicatie een duidelijke installatiepagina met de te nemen stappen.
 | `DB_NAME`           | `certif_clock`                 | Databasenaam                               |
 | `DB_USER`           | `certif_clock`                 | Databasegebruiker                          |
 | `DB_PASSWORD`       | *(leeg)*                       | Wachtwoord van de databasegebruiker        |
-| `OWNER_USERNAME`    | `owner`                        | Gebruikersnaam van het owner-account       |
-| `OWNER_PASSWORD`    | *(verplicht bij eerste start)* | Wachtwoord van het owner-account           |
 | `SESSION_NAME`      | `certif_clock_session`         | Naam van het sessiecookie                  |
 | `SESSION_LIFETIME`  | `28800`                        | Sessieduur in seconden                     |
 | `SECURE_COOKIES`    | `false`                        | Zet op `true` achter HTTPS                 |
@@ -175,6 +205,21 @@ php tests/run.php
 ```
 
 De databasetests worden overgeslagen wanneer er geen MySQL-verbinding of schema beschikbaar is.
+Voer de bestaande databasetests uitsluitend uit met DB-gegevens van een geïsoleerde testdatabase.
+
+Installer-validatie en optionele MySQL-integratietests:
+
+```bash
+php tests/install.php
+INSTALL_TEST_MYSQL=1 DB_HOST=127.0.0.1 DB_USER=tester DB_PASSWORD=... php tests/install.php
+```
+
+De tweede opdracht vereist expliciete toestemming via `INSTALL_TEST_MYSQL=1` en een
+testserveraccount met CREATE/DROP DATABASE-rechten. De test maakt een willekeurig benoemde,
+nieuwe `certif_clock_test_*`-database aan en ruimt uitsluitend die eigen database op.
+`DB_NAME` wordt daarvoor niet gebruikt. Hierin worden ook de bestaande tests gedraaid.
+Zonder toestemming of bereikbare MySQL-server worden integratietests expliciet overgeslagen.
+De paralleltest gebruikt twee onafhankelijke PHP-processen (indien `proc_open` beschikbaar is).
 
 ## Migratie vanaf de Node.js-versie
 

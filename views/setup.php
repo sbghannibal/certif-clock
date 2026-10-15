@@ -19,9 +19,10 @@ if (!defined('CERTIF_CLOCK')) {
       <p class="alert alert--error"><?= e($message) ?></p>
       <ol class="muted">
         <li>Kopieer <code>.env.example</code> naar <code>.env</code> en vul de MySQL-gegevens in.</li>
-        <li>Importeer het schema: <code>mysql -u USER -p DATABASE &lt; database/schema.sql</code>.</li>
-        <li>Zet <code>OWNER_USERNAME</code> en <code>OWNER_PASSWORD</code> zodat het owner-account
-            bij de eerste start automatisch aangemaakt wordt.</li>
+        <li>Voorzie vooraf een lege MySQL-database en een databasegebruiker met de nodige rechten.</li>
+        <li>Bezoek <a href="/install.php">de installer</a> om de tabellen en het eerste owner-account aan te maken.</li>
+        <li>Bij bestaande gegevens is de installer gesloten. Laat de beheerder de toegang herstellen;
+            verwijder geen gegevens om de installer opnieuw te openen.</li>
       </ol>
     </section>
   </main>
